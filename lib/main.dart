@@ -45,26 +45,26 @@ void main() async {
 Future<void> _initializeApp() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
-    
+
     print('🚀 FormdaKal başlatılıyor...');
-    
+
     // Initialize core services
     await _initializeCoreServices();
-    
+
     // Initialize UI
     _initializeUI();
-    
+
     // Load shared preferences
     final prefs = await SharedPreferences.getInstance();
     print('✅ SharedPreferences yüklendi');
-    
+
     // Start the app
     runApp(MyApp(prefs: prefs));
     print('✅ FormdaKal başarıyla başlatıldı');
-    
+
   } catch (error) {
     print('❌ Kritik başlatma hatası: $error');
-    
+
     // Fallback: Start app with basic configuration
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -82,15 +82,15 @@ Future<void> _initializeCoreServices() async {
   // Initialize error handler first
   ErrorHandler();
   print('✅ Error handler başlatıldı');
-  
+
   // Initialize permission service
   await PermissionService().init();
   print('✅ Permission service başlatıldı');
-  
+
   // Initialize notification service
   await NotificationService().init();
   print('✅ Notification service başlatıldı');
-  
+
   // Initialize date formatting
   await initializeDateFormatting('tr_TR', null);
   print('✅ Türkçe tarih formatı başlatıldı');
@@ -108,12 +108,12 @@ void _initializeUI() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
-  
+
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
     overlays: [SystemUiOverlay.top],
   );
-  
+
   print('✅ System UI yapılandırıldı');
 }
 
@@ -122,7 +122,7 @@ class MyApp extends StatefulWidget {
   final bool hasError;
 
   const MyApp({
-    super.key, 
+    super.key,
     required this.prefs,
     this.hasError = false,
   });
@@ -141,12 +141,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isInitialized = true;
-    
+
     // Set error handler context
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ErrorHandler().setContext(context);
     });
-    
+
     print('📱 App lifecycle observer eklendi');
   }
 
@@ -161,9 +161,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     if (!_isInitialized) return;
-    
+
     switch (state) {
       case AppLifecycleState.paused:
         _handleAppPaused();
@@ -242,7 +242,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _requestEssentialPermissions() async {
     if (!mounted) return;
-    
+
     try {
       final success = await PermissionService().requestEssentialPermissions(context);
       if (success) {
@@ -270,24 +270,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider<ProgressPhotoProvider>(create: (_) => ProgressPhotoProvider(widget.prefs)),
         ChangeNotifierProvider<AchievementProvider>(create: (_) => AchievementProvider(widget.prefs)),
         ChangeNotifierProvider<ReminderProvider>(create: (_) => ReminderProvider(widget.prefs)),
-        
+
         // Dependent providers
         ChangeNotifierProxyProvider<AchievementProvider, UserProvider>(
           create: (context) => UserProvider(
-            widget.prefs, 
+            widget.prefs,
             Provider.of<AchievementProvider>(context, listen: false)
           ),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
         ),
-        
+
         ChangeNotifierProxyProvider<AchievementProvider, FoodProvider>(
           create: (context) => FoodProvider(
-            widget.prefs, 
+            widget.prefs,
             Provider.of<AchievementProvider>(context, listen: false)
           ),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
         ),
-        
+
         ChangeNotifierProxyProvider2<AchievementProvider, UserProvider, ExerciseProvider>(
           create: (context) => ExerciseProvider(
             widget.prefs,
@@ -296,7 +296,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           update: (_, achievement, user, previous) => previous!..updateDependencies(achievement, user),
         ),
-        
+
         ChangeNotifierProxyProvider3<AchievementProvider, UserProvider, ExerciseProvider, WorkoutPlanProvider>(
           create: (context) => WorkoutPlanProvider(
             widget.prefs,
@@ -304,7 +304,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             Provider.of<UserProvider>(context, listen: false),
             Provider.of<ExerciseProvider>(context, listen: false),
           ),
-          update: (_, achievement, user, exercise, previous) => 
+          update: (_, achievement, user, exercise, previous) =>
             previous!..updateDependencies(achievement, user, exercise),
         ),
       ],
@@ -314,15 +314,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
-            
+
             // Modern themes
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
-            
+
             home: const SplashScreen(),
             routes: _buildRoutes(),
             builder: _buildAppWrapper,
-            
+
             // Error handling
             onGenerateRoute: _onGenerateRoute,
             onUnknownRoute: _onUnknownRoute,
@@ -332,18 +332,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  List<ChangeNotifierProvider> _buildProviders() {
-    return [
-      // Basic providers
-      ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider(widget.prefs)),
-      ChangeNotifierProvider<MeasurementProvider>(create: (_) => MeasurementProvider(widget.prefs)),
-      ChangeNotifierProvider<ProgressPhotoProvider>(create: (_) => ProgressPhotoProvider(widget.prefs)),
-      ChangeNotifierProvider<AchievementProvider>(create: (_) => AchievementProvider(widget.prefs)),
-      ChangeNotifierProvider<ReminderProvider>(create: (_) => ReminderProvider(widget.prefs)),
-      
-      // Dependent providers - using MultiProvider instead
-    ];
-  }
+  // DÜZELTME: Bu metot kullanılmadığı için kaldırıldı.
+  // List<ChangeNotifierProvider> _buildProviders() { ... }
 
   Map<String, WidgetBuilder> _buildRoutes() {
     return {
@@ -376,11 +366,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           statusBarColor: Colors.transparent,
           systemNavigationBarColor: Colors.transparent,
           systemNavigationBarDividerColor: Colors.transparent,
-          statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-              ? Brightness.light 
+          statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark
+              ? Brightness.light
               : Brightness.dark,
-          systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-              ? Brightness.light 
+          systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark
+              ? Brightness.light
               : Brightness.dark,
         ),
         child: child!,
@@ -395,7 +385,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Route<dynamic> _onUnknownRoute(RouteSettings settings) {
     print('❌ Bilinmeyen route: ${settings.name}');
-    
+
     return MaterialPageRoute(
       builder: (context) => Scaffold(
         appBar: AppBar(title: const Text('Sayfa Bulunamadı')),
@@ -409,7 +399,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/home', 
+                  '/home',
                   (route) => false,
                 ),
                 child: const Text('Ana Sayfaya Dön'),

@@ -52,7 +52,7 @@ class ErrorHandler {
 
   // Loading state management
   final Map<String, LoadingState> _loadingStates = {};
-  final StreamController<Map<String, LoadingState>> _loadingStream = 
+  final StreamController<Map<String, LoadingState>> _loadingStream =
       StreamController<Map<String, LoadingState>>.broadcast();
 
   // Streams
@@ -70,7 +70,7 @@ class ErrorHandler {
     bool logError = true,
   }) async {
     final appError = _createAppError(error, type, message, context, stackTrace);
-    
+
     if (logError) {
       _logError(appError);
     }
@@ -92,7 +92,7 @@ class ErrorHandler {
   ) {
     ErrorType errorType = type ?? _determineErrorType(error);
     String errorMessage = message ?? _extractErrorMessage(error);
-    
+
     if (context != null) {
       errorMessage = '$context: $errorMessage';
     }
@@ -158,7 +158,7 @@ class ErrorHandler {
   /// Log error
   void _logError(AppError error) {
     _errorLog.add(error);
-    
+
     // Keep only last 100 errors
     if (_errorLog.length > 100) {
       _errorLog.removeAt(0);
@@ -173,7 +173,7 @@ class ErrorHandler {
 
   /// Current context for dialogs
   BuildContext? _currentContext;
-  
+
   void setContext(BuildContext context) {
     _currentContext = context;
   }
@@ -181,7 +181,7 @@ class ErrorHandler {
   /// Show error dialog
   Future<void> _showErrorDialog(BuildContext context, AppError error) async {
     final errorInfo = _getErrorDisplayInfo(error.type);
-    
+
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -331,7 +331,7 @@ class ErrorHandler {
   void setSuccess(String key) {
     _loadingStates[key] = LoadingState.success;
     _loadingStream.add(Map.from(_loadingStates));
-    
+
     // Auto-clear after 2 seconds
     Timer(const Duration(seconds: 2), () {
       if (_loadingStates[key] == LoadingState.success) {
@@ -405,7 +405,7 @@ class ErrorHandler {
     final buffer = StringBuffer();
     buffer.writeln('FormdaKal Error Log - ${DateTime.now()}');
     buffer.writeln('=' * 50);
-    
+
     for (final error in _errorLog) {
       buffer.writeln('${error.timestamp}: ${error.type.name.toUpperCase()}');
       buffer.writeln('Message: ${error.message}');
@@ -414,7 +414,7 @@ class ErrorHandler {
       }
       buffer.writeln('-' * 30);
     }
-    
+
     return buffer.toString();
   }
 
@@ -465,7 +465,9 @@ class LoadingWidget extends StatelessWidget {
       stream: ErrorHandler().loadingStream,
       builder: (context, snapshot) {
         final loadingState = ErrorHandler().getLoadingState(loadingKey);
-        
+
+        // DÜZELTME: 'default' ifadesi gereksiz olduğu için kaldırıldı.
+        // Her 'case' durumu zaten ele alınıyor.
         switch (loadingState) {
           case LoadingState.loading:
             return loadingWidget ?? _buildDefaultLoading();
@@ -474,7 +476,6 @@ class LoadingWidget extends StatelessWidget {
           case LoadingState.success:
             return _buildSuccessIndicator();
           case LoadingState.idle:
-          default:
             return child;
         }
       },
@@ -586,7 +587,7 @@ class LoadingButton extends StatelessWidget {
       stream: ErrorHandler().loadingStream,
       builder: (context, snapshot) {
         final isLoading = ErrorHandler().isLoading(loadingKey);
-        
+
         return ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: style,
@@ -646,7 +647,7 @@ class SafeWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ErrorHandler().setContext(context);
-    
+
     return Builder(
       builder: (context) {
         try {
@@ -658,7 +659,7 @@ class SafeWrapper extends StatelessWidget {
             stackTrace: stackTrace,
             showDialog: false,
           );
-          
+
           return _buildErrorFallback(context);
         }
       },
@@ -705,5 +706,5 @@ class SafeWrapper extends StatelessWidget {
   }
 }
 
-// Note: To use NetworkAwareWidget with full functionality, 
+// Note: To use NetworkAwareWidget with full functionality,
 // add 'connectivity_plus: ^5.0.2' to pubspec.yaml dependencies

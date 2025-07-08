@@ -1,4 +1,4 @@
-// lib/screens/step_details_screen.dart - MODERN APPLE/SAMSUNG TARZI
+// lib/screens/step_details_screen.dart - OVERFLOW HATASI DÜZELTİLDİ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -64,10 +64,10 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
           
           // Dinamik hedefler (kullanıcı profiline göre)
           final stepGoal = user?.dailyStepGoal ?? 10000;
-          final minuteGoal = user?.dailyMinuteGoal ?? 60; // dailyActiveMinuteGoal → dailyMinuteGoal
+          final minuteGoal = user?.dailyMinuteGoal ?? 60;
           final calorieGoal = (user?.dailyCalorieNeeds ?? 2000) * 0.2; // %20'si egzersizden
           
-          final distanceKm = (steps * 0.75) / 1000; // strideLength yerine sabit değer
+          final distanceKm = (steps * 0.75) / 1000;
           
           final stepProgress = (steps / stepGoal).clamp(0.0, 1.0);
           final minuteProgress = (activeMinutes / minuteGoal).clamp(0.0, 1.0);
@@ -77,7 +77,7 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverAppBar(
-                  expandedHeight: 80,
+                  expandedHeight: 60, // Yükseklik azaltıldı
                   floating: false,
                   pinned: true,
                   elevation: 0,
@@ -92,24 +92,24 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                   ),
                   flexibleSpace: FlexibleSpaceBar(
                     title: Text(
-                      'Aktivite',
+                      'Adım Sayar', // Başlık değiştirildi
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        fontSize: 34,
+                        fontSize: 24, // Font boyutu küçültüldü
                         color: isDarkMode ? Colors.white : Colors.black,
                       ),
                     ),
-                    titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                    titlePadding: const EdgeInsets.only(left: 20, bottom: 12), // Padding azaltıldı
                   ),
                 ),
               ];
             },
             body: Column(
               children: [
-                // Ana Activity Ring
+                // Ana Activity Ring - Boyut ve padding azaltıldı
                 Container(
-                  margin: const EdgeInsets.all(20),
-                  padding: const EdgeInsets.all(24),
+                  margin: const EdgeInsets.all(16), // Margin azaltıldı
+                  padding: const EdgeInsets.all(20), // Padding azaltıldı
                   decoration: BoxDecoration(
                     color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -123,13 +123,13 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                   ),
                   child: Column(
                     children: [
-                      // Ring Chart
+                      // Ring Chart - Boyut azaltıldı
                       AnimatedBuilder(
                         animation: _ringAnimation,
                         builder: (context, child) {
                           return SizedBox(
-                            width: 280,
-                            height: 280,
+                            width: 240, // 280'den 240'a azaltıldı
+                            height: 240, // 280'den 240'a azaltıldı
                             child: CustomPaint(
                               painter: ActivityRingPainter(
                                 outerProgress: stepProgress * _ringAnimation.value,
@@ -139,7 +139,6 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                                 middleColor: AppColors.timeColor,
                                 innerColor: AppColors.calorieColor,
                                 showGlow: true,
-                                // strokeWidth kaldırıldı - ActivityRingPainter'da yok
                               ),
                               child: Center(
                                 child: Column(
@@ -148,13 +147,13 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                                     Icon(
                                       Icons.directions_walk_rounded,
                                       color: AppColors.stepColor,
-                                      size: 48,
+                                      size: 40, // 48'den 40'a azaltıldı
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6), // 8'den 6'ya azaltıldı
                                     Text(
                                       steps.toString(),
                                       style: TextStyle(
-                                        fontSize: 44,
+                                        fontSize: 36, // 44'ten 36'ya azaltıldı
                                         fontWeight: FontWeight.w700,
                                         color: isDarkMode ? Colors.white : Colors.black,
                                       ),
@@ -162,17 +161,17 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                                     Text(
                                       'ADIM',
                                       style: TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 14, // 16'dan 14'e azaltıldı
                                         fontWeight: FontWeight.w500,
                                         color: Colors.grey.shade500,
                                         letterSpacing: 1.2,
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6), // 8'den 6'ya azaltıldı
                                     Text(
                                       '${stepGoal.toString()} hedef',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 12, // 14'ten 12'ye azaltıldı
                                         color: Colors.grey.shade400,
                                       ),
                                     ),
@@ -184,9 +183,9 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                         },
                       ),
                       
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24), // 32'den 24'e azaltıldı
                       
-                      // Stats Row
+                      // Stats Row - Boyut optimizasyonu
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -201,7 +200,7 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                           ),
                           Container(
                             width: 1,
-                            height: 60,
+                            height: 50, // 60'tan 50'ye azaltıldı
                             color: Colors.grey.shade300,
                           ),
                           _buildModernStat(
@@ -219,9 +218,9 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                   ),
                 ),
                 
-                // Tab Bar
+                // Tab Bar - Margin azaltıldı
                 Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  margin: const EdgeInsets.symmetric(horizontal: 16), // 20'den 16'ya azaltıldı
                   decoration: BoxDecoration(
                     color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -253,18 +252,21 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
                   ),
                 ),
                 
-                // Tab Content
+                // Tab Content - Expanded ile overflow önlendi
                 Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Bugün
-                      _buildTodayStats(context, distanceKm, isDarkMode),
-                      // 7 Gün
-                      _buildWeeklyChart(context, exerciseProvider, isDarkMode),
-                      // 30 Gün
-                      _buildMonthlyChart(context, exerciseProvider, isDarkMode),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16), // Alt padding eklendi
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        // Bugün
+                        _buildTodayStats(context, distanceKm, isDarkMode),
+                        // 7 Gün
+                        _buildWeeklyChart(context, exerciseProvider, isDarkMode),
+                        // 30 Gün
+                        _buildMonthlyChart(context, exerciseProvider, isDarkMode),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -286,31 +288,31 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
   ) {
     return Column(
       children: [
-        // Progress Circle
+        // Progress Circle - Boyut azaltıldı
         SizedBox(
-          width: 50,
-          height: 50,
+          width: 40, // 50'den 40'a azaltıldı
+          height: 40, // 50'den 40'a azaltıldı
           child: CircularProgressIndicator(
             value: progress,
             backgroundColor: Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation<Color>(color),
-            strokeWidth: 4,
+            strokeWidth: 3, // 4'ten 3'e azaltıldı
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8), // 12'den 8'e azaltıldı
         Text(
           value,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 20, // 24'ten 20'ye azaltıldı
             fontWeight: FontWeight.w700,
             color: isDarkMode ? Colors.white : Colors.black,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2), // 4'ten 2'ye azaltıldı
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 12, // 14'ten 12'ye azaltıldı
             fontWeight: FontWeight.w500,
             color: Colors.grey.shade500,
           ),
@@ -318,7 +320,7 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
         Text(
           target,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 10, // 12'den 10'a azaltıldı
             color: Colors.grey.shade400,
           ),
         ),
@@ -327,60 +329,63 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
   }
 
   Widget _buildTodayStats(BuildContext context, double distanceKm, bool isDarkMode) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isDarkMode ? null : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bugünkü Detaylar',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: isDarkMode ? Colors.white : Colors.black,
+    return SingleChildScrollView( // ScrollView eklendi
+      child: Container(
+        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
+        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDarkMode ? null : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
             ),
-          ),
-          const SizedBox(height: 20),
-          _buildStatRow(context, Icons.map_rounded, 'Mesafe', '${distanceKm.toStringAsFixed(2)} km', isDarkMode),
-          _buildStatRow(context, Icons.speed_rounded, 'Ortalama Hız', '${(distanceKm * 60 / 24).toStringAsFixed(1)} km/h', isDarkMode),
-          _buildStatRow(context, Icons.trending_up_rounded, 'En Aktif Saat', '14:00 - 15:00', isDarkMode),
-          _buildStatRow(context, Icons.timer_rounded, 'Toplam Süre', '${(DateTime.now().hour - 6)} saat aktif', isDarkMode),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
+          children: [
+            Text(
+              'Bugünkü Detaylar',
+              style: TextStyle(
+                fontSize: 18, // 20'den 18'e azaltıldı
+                fontWeight: FontWeight.w600,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
+            _buildStatRow(context, Icons.map_rounded, 'Mesafe', '${distanceKm.toStringAsFixed(2)} km', isDarkMode),
+            _buildStatRow(context, Icons.speed_rounded, 'Ortalama Hız', '${(distanceKm * 60 / 24).toStringAsFixed(1)} km/h', isDarkMode),
+            _buildStatRow(context, Icons.trending_up_rounded, 'En Aktif Saat', '14:00 - 15:00', isDarkMode),
+            _buildStatRow(context, Icons.timer_rounded, 'Toplam Süre', '${(DateTime.now().hour - 6)} saat aktif', isDarkMode),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatRow(BuildContext context, IconData icon, String label, String value, bool isDarkMode) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12), // 16'dan 12'ye azaltıldı
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6), // 8'den 6'ya azaltıldı
             decoration: BoxDecoration(
               color: AppColors.primaryGreen.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: AppColors.primaryGreen, size: 20),
+            child: Icon(icon, color: AppColors.primaryGreen, size: 18), // 20'den 18'e azaltıldı
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12), // 16'dan 12'ye azaltıldı
           Expanded(
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 14, // 16'dan 14'e azaltıldı
                 color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
               ),
             ),
@@ -388,7 +393,7 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
           Text(
             value,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14, // 16'dan 14'e azaltıldı
               fontWeight: FontWeight.w600,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
@@ -401,157 +406,164 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
   Widget _buildWeeklyChart(BuildContext context, ExerciseProvider exerciseProvider, bool isDarkMode) {
     // 7 günlük veri simülasyonu
     final weeklyData = List.generate(7, (index) {
-      // date değişkeni kaldırıldı - kullanılmıyordu
       return FlSpot(index.toDouble(), (exerciseProvider.dailySteps * (0.7 + (index * 0.05))).toDouble());
     });
 
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isDarkMode ? null : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Son 7 Gün Trendi',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: isDarkMode ? Colors.white : Colors.black,
+    return SingleChildScrollView( // ScrollView eklendi
+      child: Container(
+        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
+        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDarkMode ? null : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
             ),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        const days = ['Pz', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
-                        return Text(
-                          days[value.toInt()],
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 12,
-                          ),
-                        );
-                      },
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
+          children: [
+            Text(
+              'Son 7 Gün Trendi',
+              style: TextStyle(
+                fontSize: 18, // 20'den 18'e azaltıldı
+                fontWeight: FontWeight.w600,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
+            SizedBox(
+              height: 200, // Sabit yükseklik eklendi
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(show: false),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          const days = ['Pz', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
+                          return Text(
+                            days[value.toInt()],
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: weeklyData,
-                    isCurved: true,
-                    gradient: LinearGradient(
-                      colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.3)],
-                    ),
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: AppColors.primaryGreen,
-                          strokeWidth: 2,
-                          strokeColor: Colors.white,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: weeklyData,
+                      isCurved: true,
                       gradient: LinearGradient(
-                        colors: [
-                          AppColors.primaryGreen.withOpacity(0.3),
-                          AppColors.primaryGreen.withOpacity(0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.3)],
+                      ),
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: AppColors.primaryGreen,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primaryGreen.withOpacity(0.3),
+                            AppColors.primaryGreen.withOpacity(0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyChart(BuildContext context, ExerciseProvider exerciseProvider, bool isDarkMode) {
+    return SingleChildScrollView( // ScrollView eklendi
+      child: Container(
+        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
+        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDarkMode ? null : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
+          children: [
+            Text(
+              'Aylık Özet',
+              style: TextStyle(
+                fontSize: 18, // 20'den 18'e azaltıldı
+                fontWeight: FontWeight.w600,
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
+            _buildStatRow(context, Icons.trending_up_rounded, 'Toplam Adım', '287,450', isDarkMode),
+            _buildStatRow(context, Icons.local_fire_department_rounded, 'Toplam Kalori', '8,420 kal', isDarkMode),
+            _buildStatRow(context, Icons.map_rounded, 'Toplam Mesafe', '215.6 km', isDarkMode),
+            _buildStatRow(context, Icons.emoji_events_rounded, 'Hedeflenen Günler', '24/30 gün', isDarkMode),
+            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
+            Container(
+              padding: const EdgeInsets.all(12), // 16'dan 12'ye azaltıldı
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.celebration_rounded, color: AppColors.primaryGreen),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Bu ay harika performans! Hedeflerinin %80\'ine ulaştın.',
+                      style: TextStyle(
+                        color: AppColors.primaryGreen,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14, // Font boyutu eklendi
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthlyChart(BuildContext context, ExerciseProvider exerciseProvider, bool isDarkMode) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: isDarkMode ? null : [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Aylık Özet',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: isDarkMode ? Colors.white : Colors.black,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildStatRow(context, Icons.trending_up_rounded, 'Toplam Adım', '287,450', isDarkMode),
-          _buildStatRow(context, Icons.local_fire_department_rounded, 'Toplam Kalori', '8,420 kal', isDarkMode),
-          _buildStatRow(context, Icons.map_rounded, 'Toplam Mesafe', '215.6 km', isDarkMode),
-          _buildStatRow(context, Icons.emoji_events_rounded, 'Hedeflenen Günler', '24/30 gün', isDarkMode),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.celebration_rounded, color: AppColors.primaryGreen),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Bu ay harika performans! Hedeflerinin %80\'ine ulaştın.',
-                    style: TextStyle(
-                      color: AppColors.primaryGreen,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

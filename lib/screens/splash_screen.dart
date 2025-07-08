@@ -1,6 +1,7 @@
-// lib/screens/splash_screen.dart - HIZLI BAŞLATMA VE BAŞLIK GÖRSELİ DÜZELTMESİ
+// lib/screens/splash_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:formdakal/providers/achievement_provider.dart'; // Düzeltme: Eklendi
 import 'package:formdakal/providers/exercise_provider.dart';
 import 'package:formdakal/providers/food_provider.dart';
 import 'package:formdakal/providers/user_provider.dart';
@@ -39,7 +40,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animationController.forward();
 
-    // Paralel veri yükleme - PERFORMANS İYİLEŞTİRMESİ
     _initializeApp();
   }
 
@@ -49,7 +49,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _loadingText = 'Veriler yükleniyor...';
       });
 
-      // TÜM PROVİDER'LARI PARALEL YÜKLE - HIZLI BAŞLATMA
       await Future.wait([
         _loadUserData(),
         _loadFoodData(),
@@ -61,7 +60,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _loadingText = 'Hazırlanıyor...';
       });
 
-      // Minimum splash süresi 1 saniyeye çıkarıldı
       await Future.delayed(const Duration(seconds: 1)); 
       
       _checkAuthStatus();
@@ -73,7 +71,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _loadingText = 'Hata oluştu, yeniden deneniyor...';
       });
       
-      // Hata durumunda yeniden dene
       await Future.delayed(const Duration(seconds: 1));
       _checkAuthStatus();
     }
@@ -128,7 +125,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    // Kullanıcı verisi kontrolü
+    // Düzeltme: Hoşgeldin başarımını burada tetikle
+    Provider.of<AchievementProvider>(context, listen: false).unlockAchievement('first_login');
+
     if (userProvider.user != null) {
       print("✅ Kullanıcı mevcut - Ana ekrana yönlendiriliyor");
       Navigator.pushReplacementNamed(context, '/home');
@@ -184,9 +183,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       const SizedBox(height: 30),
                       RichText(
                         text: TextSpan(
-                          style: Theme.of(context).textTheme.displaySmall?.copyWith( // displaySmall kullanıldı
-                                fontWeight: FontWeight.bold, // Kalın
-                                color: isDarkMode ? Colors.white : Colors.black, // Tema rengine göre renk
+                          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isDarkMode ? Colors.white : Colors.black,
                               ),
                           children: const [
                             TextSpan(
@@ -194,8 +193,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               style: TextStyle(
                                 color: AppColors.primaryGreen,
                                 fontSize: 48,
-                                // fontStyle: FontStyle.italic, // İtalik kaldırıldı
-                                // fontWeight: FontWeight.bold, // Zaten ana stilde var, tekrara gerek yok
                               ),
                             ),
                             TextSpan(text: 'ormda'),
@@ -204,8 +201,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               style: TextStyle(
                                 color: AppColors.primaryGreen,
                                 fontSize: 48,
-                                // fontStyle: FontStyle.italic, // İtalik kaldırıldı
-                                // fontWeight: FontWeight.bold, // Zaten ana stilde var, tekrara gerek yok
                               ),
                             ),
                             TextSpan(text: 'al'),

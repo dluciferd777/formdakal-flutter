@@ -1,4 +1,4 @@
-// lib/screens/achievements_screen.dart - 3'LÜ KARTLAR + BÜYÜTÜLMÜŞ
+// lib/screens/achievements_screen.dart - OVERFLOW HATASI DÜZELTİLDİ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,9 +13,8 @@ class AchievementsScreen extends StatefulWidget {
   State<AchievementsScreen> createState() => _AchievementsScreenState();
 }
 
-class _AchievementsScreenState extends State<AchievementsScreen> 
+class _AchievementsScreenState extends State<AchievementsScreen>
     with TickerProviderStateMixin {
-  
   late TabController _tabController;
   late AnimationController _cardAnimationController;
 
@@ -27,7 +26,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    
+
     // Kartları sırayla animate et
     _cardAnimationController.forward();
   }
@@ -72,20 +71,22 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             children: [
               // Stats Header
               _buildStatsHeader(provider, isDarkMode),
-              
+
               // Tab Bar
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: isDarkMode ? null : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+                  boxShadow: isDarkMode
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
                 ),
                 child: TabBar(
                   controller: _tabController,
@@ -107,7 +108,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                   ],
                 ),
               ),
-              
+
               // Tab Content
               Expanded(
                 child: TabBarView(
@@ -201,7 +202,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       ),
       child: Row(
         children: [
-          // Progress Circle
           SizedBox(
             width: 80,
             height: 80,
@@ -239,8 +239,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             ),
           ),
           const SizedBox(width: 20),
-          
-          // Stats
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,10 +308,10 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       padding: const EdgeInsets.all(16),
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, // 4'ten 3'e değiştirildi
-        crossAxisSpacing: 12, // Boşluk artırıldı
-        mainAxisSpacing: 12, // Boşluk artırıldı
-        childAspectRatio: 0.85, // Kartları biraz daha yüksek yaptık
+        crossAxisCount: 2, // 3'ten 2'ye değiştirildi - daha fazla alan
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.1, // 0.85'ten 1.1'e yükseltildi - daha geniş kartlar
       ),
       itemCount: achievements.length,
       itemBuilder: (context, index) {
@@ -324,7 +322,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             final animationProgress = Curves.elasticOut.transform(
               (_cardAnimationController.value - (index * 0.1)).clamp(0.0, 1.0),
             );
-            
+
             return Transform.scale(
               scale: animationProgress,
               child: _buildAchievementCard(achievement, isDarkMode),
@@ -347,7 +345,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16), // Köşe yuvarlaklığı artırıldı
+          borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             colors: isUnlocked
                 ? [cardColor.withOpacity(0.8), cardColor]
@@ -357,8 +355,8 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           ),
           boxShadow: [
             BoxShadow(
-              color: isUnlocked 
-                  ? cardColor.withOpacity(0.3) 
+              color: isUnlocked
+                  ? cardColor.withOpacity(0.3)
                   : Colors.black.withOpacity(0.2),
               blurRadius: isUnlocked ? 12 : 6,
               offset: const Offset(0, 4),
@@ -366,14 +364,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12), // Padding artırıldı
+          padding: const EdgeInsets.all(16), // Padding artırıldı
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icon with progress ring
+              // İkon ve progress
               SizedBox(
-                width: 50, // İkon alanı büyütüldü
-                height: 50,
+                width: 60, // Boyut artırıldı
+                height: 60,
                 child: Stack(
                   children: [
                     if (!isUnlocked && achievement.targetValue > 1)
@@ -383,57 +381,63 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                         valueColor: AlwaysStoppedAnimation<Color>(
                           Colors.white.withOpacity(0.8),
                         ),
-                        strokeWidth: 3,
+                        strokeWidth: 4, // Kalınlık artırıldı
                       ),
                     Center(
                       child: Icon(
                         isUnlocked ? achievement.icon : Icons.lock_outline,
-                        size: 28, // İkon boyutu artırıldı
+                        size: 32, // Boyut artırıldı
                         color: Colors.white.withOpacity(isUnlocked ? 1.0 : 0.7),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 8), // Boşluk artırıldı
+              const SizedBox(height: 12),
               
-              // Title
+              // Başlık
               Text(
                 achievement.name,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
-                  fontSize: 13, // Font boyutu artırıldı
+                  fontSize: 14, // Font boyutu artırıldı
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               
-              // Description
+              // Açıklama - Daha kısa tutuldu
               Text(
                 achievement.description,
                 textAlign: TextAlign.center,
-                maxLines: 2,
+                maxLines: 1, // Sadece 1 satır
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: Colors.white.withOpacity(isUnlocked ? 0.9 : 0.6),
-                  fontSize: 10, // Font boyutu artırıldı
-                  height: 1.1,
+                  fontSize: 11,
                 ),
               ),
               
-              // Progress text (only for non-completed achievements)
+              // Progress metni
               if (!isUnlocked && achievement.targetValue > 1) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '${achievement.currentValue}/${achievement.targetValue}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${achievement.currentValue}/${achievement.targetValue}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -497,7 +501,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
   void _showAchievementStats(BuildContext context) {
     final provider = Provider.of<AchievementProvider>(context, listen: false);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -542,7 +546,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
   void _showTestDialog(BuildContext context) {
     final provider = Provider.of<AchievementProvider>(context, listen: false);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -553,8 +557,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              provider.unlockAchievement('first_login'); // Hoşgeldin başarımı
-              HapticFeedback.successNotificationFeedback();
+              provider.unlockAchievement('first_login');
             },
             child: const Text('Hoş Geldin'),
           ),
@@ -562,7 +565,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             onPressed: () {
               Navigator.pop(context);
               provider.addProgress('daily_steps_6000', 6000);
-              HapticFeedback.successNotificationFeedback();
             },
             child: const Text('Günlük Adım'),
           ),
@@ -570,7 +572,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             onPressed: () {
               Navigator.pop(context);
               provider.addProgress('first_workout', 1);
-              HapticFeedback.successNotificationFeedback();
             },
             child: const Text('İlk Antrenman'),
           ),

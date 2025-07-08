@@ -14,6 +14,10 @@ class FoodModel {
   String category;
   bool isTurkish;
 
+  // YENİ: Porsiyon bilgileri eklendi
+  double? servingSizeGrams; // Bir porsiyonun gram karşılığı (örn: 30)
+  String? servingUnitName;  // Porsiyonun adı (örn: "ölçek", "adet", "dilim")
+
   FoodModel({
     required this.id,
     required this.name,
@@ -26,8 +30,11 @@ class FoodModel {
     this.sodium,
     this.category = 'unknown',
     this.isTurkish = false,
+    this.servingSizeGrams, // Constructor'a eklendi
+    this.servingUnitName,  // Constructor'a eklendi
   });
 
+  // Belirtilen grama göre besin değerlerini hesaplayan yardımcı fonksiyonlar
   double getCaloriesForGrams(double grams) => (calories * grams) / 100;
   double getProteinForGrams(double grams) => (protein * grams) / 100;
   double getCarbsForGrams(double grams) => (carbs * grams) / 100;
@@ -35,7 +42,6 @@ class FoodModel {
   double getSugarForGrams(double grams) => ((sugar ?? 0.0) * grams) / 100;
   double getFiberForGrams(double grams) => ((fiber ?? 0.0) * grams) / 100;
   double getSodiumForGrams(double grams) => ((sodium ?? 0.0) * grams) / 100;
-
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -49,6 +55,8 @@ class FoodModel {
         'sodium': sodium,
         'category': category,
         'isTurkish': isTurkish,
+        'servingSizeGrams': servingSizeGrams, // JSON'a eklendi
+        'servingUnitName': servingUnitName,   // JSON'a eklendi
       };
 
   factory FoodModel.fromJson(Map<String, dynamic> json) => FoodModel(
@@ -63,8 +71,11 @@ class FoodModel {
         sodium: json['sodium']?.toDouble(),
         category: json['category'] ?? 'unknown',
         isTurkish: json['isTurkish'] ?? false,
+        servingSizeGrams: json['servingSizeGrams']?.toDouble(), // JSON'dan okuma eklendi
+        servingUnitName: json['servingUnitName'],              // JSON'dan okuma eklendi
       );
 
+  // Edamam API'sinden gelen veriyi parse etmek için
   factory FoodModel.fromJsonEdamam(Map<String, dynamic> json) {
     String foodId =
         json['foodId'] ?? (json['uri'] != null ? json['uri'].split('#').last : '');
@@ -94,11 +105,9 @@ class ConsumedFood {
   double totalFat;
   String mealType;
   DateTime consumedAt;
-  // YENİ: totalSugar, totalFiber, totalSodium eklendi
   double? totalSugar;
   double? totalFiber;
   double? totalSodium;
-
 
   ConsumedFood({
     String? id,
@@ -111,9 +120,9 @@ class ConsumedFood {
     required this.totalFat,
     required this.mealType,
     required this.consumedAt,
-    this.totalSugar, // Constructor'a eklendi
-    this.totalFiber, // Constructor'a eklendi
-    this.totalSodium, // Constructor'a eklendi
+    this.totalSugar,
+    this.totalFiber,
+    this.totalSodium,
   }) : id = id ?? const Uuid().v4();
 
   Map<String, dynamic> toJson() => {
@@ -127,9 +136,9 @@ class ConsumedFood {
         'totalFat': totalFat,
         'mealType': mealType,
         'consumedAt': consumedAt.toIso8601String(),
-        'totalSugar': totalSugar, // JSON'a eklendi
-        'totalFiber': totalFiber, // JSON'a eklendi
-        'totalSodium': totalSodium, // JSON'a eklendi
+        'totalSugar': totalSugar,
+        'totalFiber': totalFiber,
+        'totalSodium': totalSodium,
       };
 
   factory ConsumedFood.fromJson(Map<String, dynamic> json) => ConsumedFood(
@@ -143,8 +152,8 @@ class ConsumedFood {
         totalFat: json['totalFat']?.toDouble() ?? 0.0,
         mealType: json['mealType'] ?? '',
         consumedAt: DateTime.parse(json['consumedAt']),
-        totalSugar: json['totalSugar']?.toDouble(), // JSON'dan okunacak şekilde eklendi
-        totalFiber: json['totalFiber']?.toDouble(), // JSON'dan okunacak şekilde eklendi
-        totalSodium: json['totalSodium']?.toDouble(), // JSON'dan okunacak şekilde eklendi
+        totalSugar: json['totalSugar']?.toDouble(),
+        totalFiber: json['totalFiber']?.toDouble(),
+        totalSodium: json['totalSodium']?.toDouble(),
       );
 }
