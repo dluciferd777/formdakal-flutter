@@ -1,10 +1,12 @@
-// lib/services/notification_service.dart - GELİŞTİRİLMİŞ VERSİYON
+// lib/services/notification_service.dart - TAM ÇALIŞAN VERSİYON
+import 'package:flutter/material.dart'; // Color için gerekli import
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
+import 'dart:io';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -13,53 +15,156 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   late SharedPreferences _prefs;
+  bool _isInitialized = false;
   
   // Bildirim ID'leri
   static const int _stepReminderID = 1000;
   static const int _workoutReminderID = 1001;
   static const int _waterReminderID = 1002;
-  static const int _customReminderBaseID = 2000;
 
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    if (_isInitialized) return;
     
-    // Timezone veritabanını başlat
-    tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
-    
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      
+      // Timezone veritabanını başlat
+      tz.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+      
+      // Android ayarları
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
+      // iOS ayarları (gelecekte kullanım için)
+      const DarwinInitializationSettings initializationSettingsIOS = 
+          DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: true,
+            requestSoundPermission: true,
+          );
 
-    await _notifications.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) async {
-        print('🔔 Bildirime tıklandı: ${response.payload}');
-        await _handleNotificationTap(response);
-      },
-    );
+      const InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsIOS,
+      );
 
-    // İzinleri iste
-    await _requestPermissions();
-    
-    // Otomatik hatırlatmaları ayarla
-    await _setupAutomaticReminders();
-    
-    print('✅ Bildirim servisi başlatıldı');
+      await _notifications.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) async {
+          print('🔔 Bildirime tıklandı: ${response.payload}');
+          await _handleNotificationTap(response);
+        },
+      );
+
+      // Bildirim kanallarını oluştur (Android 8+)
+      await _createNotificationChannels();
+      
+      // İzinleri iste
+      await _requestPermissions();
+      
+      // Otomatik hatırlatmaları ayarla
+      await _setupAutomaticReminders();
+      
+      _isInitialized = true;
+      print('✅ Bildirim servisi tamamen başlatıldı');
+      
+      // Test bildirimi gönder (başlangıçta)
+      await _sendWelcomeNotification();
+      
+    } catch (e) {
+      print('❌ Bildirim servisi başlatma hatası: $e');
+    }
+  }
+
+  Future<void> _createNotificationChannels() async {
+    if (Platform.isAndroid) {
+      // Ana hatırlatıcı kanalı
+      const AndroidNotificationChannel reminderChannel = AndroidNotificationChannel(
+        'formdakal_reminders',
+        'FormdaKal Hatırlatıcılar',
+        description: 'Egzersiz, beslenme ve su içme hatırlatıcıları',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      );
+
+      // Motivasyon bildirimleri kanalı
+      const AndroidNotificationChannel motivationChannel = AndroidNotificationChannel(
+        'formdakal_motivation',
+        'FormdaKal Motivasyon',
+        description: 'Başarı ve motivasyon bildirimleri',
+        importance: Importance.high,
+        enableVibration: true,
+        playSound: true,
+      );
+
+      // Anında bildirim kanalı
+      const AndroidNotificationChannel instantChannel = AndroidNotificationChannel(
+        'formdakal_instant',
+        'FormdaKal Anında Bildirimler',
+        description: 'Anında bildirimler ve sistem mesajları',
+        importance: Importance.max,
+        enableVibration: true,
+        playSound: true,
+      );
+
+      final plugin = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      
+      await plugin?.createNotificationChannel(reminderChannel);
+      await plugin?.createNotificationChannel(motivationChannel);
+      await plugin?.createNotificationChannel(instantChannel);
+      
+      print('✅ Android bildirim kanalları oluşturuldu');
+    }
   }
 
   Future<void> _requestPermissions() async {
-    // Android 13+ için bildirim izni
-    if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
+    try {
+      if (Platform.isAndroid) {
+        // Android 13+ için bildirim izni
+        final notificationStatus = await Permission.notification.status;
+        if (notificationStatus.isDenied) {
+          final result = await Permission.notification.request();
+          print('📱 Bildirim izni durumu: $result');
+        }
+        
+        // Tam zamanlı bildirimler için izin (Android 6+)
+        final alarmStatus = await Permission.scheduleExactAlarm.status;
+        if (alarmStatus.isDenied) {
+          final result = await Permission.scheduleExactAlarm.request();
+          print('⏰ Zamanlanmış bildirim izni durumu: $result');
+        }
+
+        // Pil optimizasyonu uyarısı göster
+        await _showBatteryOptimizationWarning();
+      }
+    } catch (e) {
+      print('❌ İzin isteme hatası: $e');
     }
-    
-    // Tam erişim izni (Android 6+)
-    if (await Permission.scheduleExactAlarm.isDenied) {
-      await Permission.scheduleExactAlarm.request();
+  }
+
+  Future<void> _showBatteryOptimizationWarning() async {
+    // Kullanıcıya pil optimizasyonunu kapatması için bildirim gönder
+    await showInstantNotification(
+      id: 99999,
+      title: '🔋 Önemli: Pil Optimizasyonu',
+      body: 'Bildirimlerin düzenli gelmesi için pil optimizasyonunu kapatın.',
+      payload: 'battery_optimization',
+    );
+  }
+
+  Future<void> _sendWelcomeNotification() async {
+    // Uygulama ilk açıldığında hoş geldin bildirimi
+    final isFirstLaunch = _prefs.getBool('first_launch') ?? true;
+    if (isFirstLaunch) {
+      await showInstantNotification(
+        id: 1,
+        title: '🎉 FormdaKal\'a Hoş Geldin!',
+        body: 'Bildirimler aktif! Artık hedeflerini takip edebilirsin.',
+        payload: 'welcome',
+      );
+      await _prefs.setBool('first_launch', false);
     }
   }
 
@@ -77,11 +182,21 @@ class NotificationService {
         case 'water_reminder':
           print('💧 Su içme hatırlatması tıklandı');
           break;
+        case 'battery_optimization':
+          print('🔋 Pil optimizasyonu bildirimi tıklandı');
+          break;
+        case 'welcome':
+          print('🎉 Hoş geldin bildirimi tıklandı');
+          break;
+        default:
+          if (payload.startsWith('reminder_')) {
+            print('📅 Özel hatırlatma tıklandı: $payload');
+          }
       }
     }
   }
 
-  // Klasik hatırlatma zamanlama (mevcut kod ile uyumlu)
+  // Klasik hatırlatma zamanlama (ReminderProvider ile uyumlu)
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -89,50 +204,91 @@ class NotificationService {
     required DateTime scheduledTime,
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'formdakal_channel',
-      'FormdaKal Hatırlatıcılar',
-      channelDescription: 'Egzersiz ve beslenme hatırlatıcıları',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      playSound: true,
-      icon: '@mipmap/ic_launcher',
-    );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
     try {
+      // Geçmiş tarihler için kontrol
+      if (scheduledTime.isBefore(DateTime.now())) {
+        print('⚠️ Geçmiş tarih için bildirim zamanlanamaz: $scheduledTime');
+        return;
+      }
+
+      AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'formdakal_reminders',
+        'FormdaKal Hatırlatıcılar',
+        channelDescription: 'Egzersiz ve beslenme hatırlatıcıları',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+        color: const Color(0xFF4CAF50), // Yeşil renk
+        autoCancel: true,
+        ongoing: false,
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+          summaryText: 'FormdaKal',
+        ),
+      );
+
+      NotificationDetails notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      );
+
+      final tz.TZDateTime tzScheduledTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
       await _notifications.zonedSchedule(
         id,
         title,
         body,
-        tz.TZDateTime.from(scheduledTime, tz.local),
+        tzScheduledTime,
         notificationDetails,
         payload: payload,
         uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 
-      print('✅ Bildirim zamanlandı: $title - $scheduledTime');
+      print('✅ Bildirim zamanlandı: $title - ${scheduledTime.toString()}');
     } catch (e) {
       print('❌ Bildirim zamanlama hatası: $e');
+      
+      // Hata durumunda fallback olarak anında bildirim gönder
+      try {
+        await showInstantNotification(
+          id: id,
+          title: '⚠️ $title',
+          body: 'Zamanlama hatası: $body',
+          payload: payload,
+        );
+      } catch (e2) {
+        print('❌ Fallback bildirimi de başarısız: $e2');
+      }
     }
   }
 
   // Otomatik hatırlatmaları ayarla
   Future<void> _setupAutomaticReminders() async {
-    // Günlük adım hatırlatması - akşam 8'de
-    await _scheduleStepReminder();
-    
-    // Egzersiz hatırlatması - akşam 7'de
-    await _scheduleWorkoutReminder();
-    
-    // Su içme hatırlatması - her 2 saatte bir
-    await _scheduleWaterReminders();
+    try {
+      // Günlük adım hatırlatması - akşam 8'de
+      await _scheduleStepReminder();
+      
+      // Egzersiz hatırlatması - akşam 7'de
+      await _scheduleWorkoutReminder();
+      
+      // Su içme hatırlatması - her 2 saatte bir
+      await _scheduleWaterReminders();
+      
+      print('✅ Otomatik hatırlatmalar ayarlandı');
+    } catch (e) {
+      print('❌ Otomatik hatırlatma ayarlama hatası: $e');
+    }
   }
 
   Future<void> _scheduleStepReminder() async {
@@ -186,6 +342,7 @@ class NotificationService {
       '🥤 Hidrasyon önemli! Biraz su iç.',
       '💦 Su içmeyi unutma! Sağlığın için önemli.',
       '🚰 Su bardağını doldur ve iç!',
+      '💙 Vücudun su istiyor! İhtiyacını karşıla.',
     ];
 
     // 08:00 - 22:00 arası her 2 saatte bir hatırlatma
@@ -215,7 +372,7 @@ class NotificationService {
     switch (type) {
       case 'step_milestone':
         title = '🎉 Harika! Adım Hedefine Ulaştın!';
-        body = 'Bugün ${10000} adım attın! Muhteşem bir performans!';
+        body = 'Bugün 10.000 adım attın! Muhteşem bir performans!';
         break;
       case 'workout_completed':
         title = '💪 Egzersiz Tamamlandı!';
@@ -245,21 +402,33 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'formdakal_instant',
       'FormdaKal Anında Bildirimler',
       channelDescription: 'Anında bildirimler ve motivasyon mesajları',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
       enableVibration: true,
       playSound: true,
       icon: '@mipmap/ic_launcher',
-      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      color: const Color(0xFF4CAF50), // Yeşil renk
+      autoCancel: true,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: 'FormdaKal',
+      ),
     );
 
-    const NotificationDetails notificationDetails = NotificationDetails(
+    NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
 
     try {
@@ -299,7 +468,6 @@ class NotificationService {
         await cancelNotification(_workoutReminderID);
         break;
       case 'water':
-        // Su hatırlatmalarını iptal et (8 farklı saat)
         for (int hour = 8; hour <= 22; hour += 2) {
           await cancelNotification(_waterReminderID + hour);
         }
@@ -332,5 +500,23 @@ class NotificationService {
       body: 'FormdaKal bildirimleri çalışıyor! ✅',
       payload: 'test',
     );
+  }
+
+  // Bildirim durumunu kontrol et
+  Future<bool> areNotificationsEnabled() async {
+    final plugin = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (plugin != null) {
+      return await plugin.areNotificationsEnabled() ?? false;
+    }
+    return false;
+  }
+
+  // Bekleyen bildirimleri listele (debug için)
+  Future<void> listPendingNotifications() async {
+    final pendingNotifications = await _notifications.pendingNotificationRequests();
+    print('📋 Bekleyen bildirim sayısı: ${pendingNotifications.length}');
+    for (final notification in pendingNotifications) {
+      print('  - ID: ${notification.id}, Title: ${notification.title}');
+    }
   }
 }
