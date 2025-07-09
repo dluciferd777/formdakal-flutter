@@ -301,82 +301,195 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                         
-                        // Activity Cards
-                        SliverToBoxAdapter(
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: const StepCounterCard(),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: ExpandableActivityCard(
-                                  title: 'Başarımlar',
-                                  subtitle: 'Kazanılan rozet ve madalyalar',
-                                  value: unlockedAchievements.toString(),
-                                  unit: 'adet',
-                                  icon: Icons.emoji_events_rounded,
-                                  color: Colors.amber.shade600,
-                                  type: ActivityCardType.achievements,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: ExpandableActivityCard(
-                                  title: 'Fitness Kalori',
-                                  subtitle: 'Bugün yakılan kalori',
-                                  value: dailyBurnedCalories.toInt().toString(),
-                                  unit: 'kal',
-                                  icon: Icons.fitness_center_rounded,
-                                  color: AppColors.primaryGreen,
-                                  type: ActivityCardType.fitness,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: ExpandableActivityCard(
-                                  title: 'Yemek Kalori',
-                                  subtitle: 'Bugün alınan kalori',
-                                  value: dailyIntakeCalories.toStringAsFixed(0),
-                                  unit: 'kal',
-                                  icon: Icons.restaurant_rounded,
-                                  color: AppColors.calorieColor,
-                                  type: ActivityCardType.food,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: ExpandableActivityCard(
-                                  title: 'Kalori Takip',
-                                  subtitle: 'Net kalori dengesi',
-                                  value: (dailyIntakeCalories - dailyBurnedCalories).toStringAsFixed(0),
-                                  unit: 'kal',
-                                  icon: Icons.track_changes_rounded,
-                                  color: Colors.indigo.shade500,
-                                  type: ActivityCardType.calorieTracking,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: ExpandableActivityCard(
-                                  title: 'Su Tüketimi',
-                                  subtitle: '${(dailyWaterTarget * 1000).toInt()} ml hedef',
-                                  value: (dailyWaterIntake * 1000).toInt().toString(),
-                                  unit: 'ml',
-                                  icon: Icons.water_drop_rounded,
-                                  color: Colors.blue.shade500,
-                                  type: ActivityCardType.water,
-                                ),
-                              ),
-                              // Navigation bar boşluğu
-                              SizedBox(height: MediaQuery.of(context).padding.bottom + 32),
-                            ],
+                      // Activity Cards
+SliverToBoxAdapter(
+  child: Column(
+    children: [
+      // Step Counter Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: const StepCounterCard(),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Başarımlar Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ExpandableActivityCard(
+            title: 'Başarımlar',
+            subtitle: 'Kazanılan rozet ve madalyalar',
+            value: unlockedAchievements.toString(),
+            unit: 'adet',
+            icon: Icons.emoji_events,
+            color: Colors.amber,
+            type: ActivityCardType.achievements,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Fitness Kalori Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ExpandableActivityCard(
+            title: 'Fitness Kalori',
+            subtitle: 'Bugün yakılan kalori',
+            value: dailyBurnedCalories.toInt().toString(),
+            unit: 'kal',
+            icon: Icons.fitness_center,
+            color: AppColors.primaryGreen,
+            type: ActivityCardType.fitness,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Yemek Kalori Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ExpandableActivityCard(
+            title: 'Yemek Kalori',
+            subtitle: 'Bugün alınan kalori',
+            value: dailyIntakeCalories.toStringAsFixed(0),
+            unit: 'kal',
+            icon: Icons.restaurant,
+            color: AppColors.calorieColor,
+            type: ActivityCardType.food,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Kalori Takip Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ExpandableActivityCard(
+            title: 'Kalori Takip',
+            subtitle: 'Net kalori dengesi',
+            value: (dailyIntakeCalories - dailyBurnedCalories).toStringAsFixed(0),
+            unit: 'kal',
+            icon: Icons.track_changes,
+            color: Colors.blueAccent,
+            type: ActivityCardType.calorieTracking,
+          ),
+        ),
+      ),
+      
+      const SizedBox(height: 12),
+      
+      // Su Tüketimi Card
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode 
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: ExpandableActivityCard(
+            title: 'Su Tüketimi',
+            subtitle: '${(dailyWaterTarget * 1000).toInt()} ml hedef',
+            value: (dailyWaterIntake * 1000).toInt().toString(),
+            unit: 'ml',
+            icon: Icons.water_drop,
+            color: AppColors.timeColor,
+            type: ActivityCardType.water,
+          ),
+        ),
+      ),
+      
+      // Navigation bar boşluğu
+      SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
+    ],
                           ),
                         ),
                       ],

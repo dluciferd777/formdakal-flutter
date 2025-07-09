@@ -1,4 +1,4 @@
-// lib/screens/achievements_screen.dart - KÜÇÜK EKRANLAR İÇİN DÜZELTİLMİŞ
+// lib/screens/achievements_screen.dart - TAM KOD
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -41,8 +41,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
@@ -70,22 +68,22 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
           return Column(
             children: [
-              // Stats Header - Küçük ekranlar için optimize edildi
-              _buildStatsHeader(provider, isDarkMode, screenHeight),
+              // Stats Header
+              _buildStatsHeader(provider, isDarkMode),
 
-              // Tab Bar - Daha küçük yapıldı
+              // Tab Bar
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12), // 16'dan 12'ye
+                margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(12), // 16'dan 12'ye
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: isDarkMode
                       ? null
                       : [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.05),
-                            blurRadius: 15, // 20'den 15'e
-                            offset: const Offset(0, 3), // 5'ten 3'e
+                            blurRadius: 20,
+                            offset: const Offset(0, 5),
                           ),
                         ],
                 ),
@@ -93,12 +91,12 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                   controller: _tabController,
                   indicatorSize: TabBarIndicatorSize.tab,
                   indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8), // 12'den 8'e
+                    borderRadius: BorderRadius.circular(12),
                     color: AppColors.primaryGreen,
                   ),
                   labelColor: Colors.white,
                   unselectedLabelColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11), // 12'den 11'e
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                   dividerColor: Colors.transparent,
                   onTap: (index) => HapticFeedback.selectionClick(),
                   tabs: const [
@@ -110,17 +108,15 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 ),
               ),
 
-              const SizedBox(height: 8), // Boşluk eklendi
-
-              // Tab Content - Overflow önlendi
+              // Tab Content
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildAchievementGrid(provider.achievements, isDarkMode, screenWidth, screenHeight),
-                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.daily), isDarkMode, screenWidth, screenHeight),
-                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.weekly), isDarkMode, screenWidth, screenHeight),
-                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.monthly), isDarkMode, screenWidth, screenHeight),
+                    _buildAchievementGrid(provider.achievements, isDarkMode),
+                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.daily), isDarkMode),
+                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.weekly), isDarkMode),
+                    _buildAchievementGrid(provider.getAchievementsByType(AchievementType.monthly), isDarkMode),
                   ],
                 ),
               ),
@@ -128,17 +124,13 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           );
         },
       ),
-      // FloatingActionButton - Küçük ekranlar için pozisyon ayarlandı
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 20), // Alt padding eklendi
-        child: FloatingActionButton.extended(
-          onPressed: () => _showTestDialog(context),
-          backgroundColor: AppColors.primaryGreen,
-          icon: const Icon(Icons.science_rounded, color: Colors.white, size: 20), // İkon küçültüldü
-          label: const Text(
-            'Test',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12), // Font küçültüldü
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showTestDialog(context),
+        backgroundColor: AppColors.primaryGreen,
+        icon: const Icon(Icons.science_rounded, color: Colors.white),
+        label: const Text(
+          'Test Başarımları',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -150,34 +142,34 @@ class _AchievementsScreenState extends State<AchievementsScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24), // 32'den 24'e
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: AppColors.primaryGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.emoji_events_outlined,
-              size: 60, // 80'den 60'a
+              size: 80,
               color: AppColors.primaryGreen,
             ),
           ),
-          const SizedBox(height: 24), // 32'den 24'e
+          const SizedBox(height: 32),
           Text(
             'Henüz Başarım Yok',
             style: TextStyle(
-              fontSize: 20, // 24'ten 20'ye
+              fontSize: 24,
               fontWeight: FontWeight.w600,
               color: isDarkMode ? Colors.white : Colors.black87,
             ),
           ),
-          const SizedBox(height: 8), // 12'den 8'e
+          const SizedBox(height: 12),
           Text(
             'Aktivitelere başlayarak\nilk başarımını kazanmaya başla!',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 14, // 16'dan 14'e
+              fontSize: 16,
               color: Colors.grey.shade500,
-              height: 1.4, // 1.5'ten 1.4'e
+              height: 1.5,
             ),
           ),
         ],
@@ -185,13 +177,10 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildStatsHeader(AchievementProvider provider, bool isDarkMode, double screenHeight) {
-    // Küçük ekranlar için header boyutunu ayarla
-    final bool isSmallScreen = screenHeight < 700;
-    
+  Widget _buildStatsHeader(AchievementProvider provider, bool isDarkMode) {
     return Container(
-      margin: EdgeInsets.all(isSmallScreen ? 12 : 16), // Küçük ekranlarda daha az margin
-      padding: EdgeInsets.all(isSmallScreen ? 16 : 20), // Küçük ekranlarda daha az padding
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -201,27 +190,27 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16), // 20'den 16'ya
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryGreen.withOpacity(0.3),
-            blurRadius: 12, // 15'ten 12'ye
-            offset: const Offset(0, 4), // 5'ten 4'e
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Row(
         children: [
           SizedBox(
-            width: isSmallScreen ? 60 : 80, // Küçük ekranlarda daha küçük
-            height: isSmallScreen ? 60 : 80,
+            width: 80,
+            height: 80,
             child: Stack(
               children: [
                 CircularProgressIndicator(
                   value: provider.completionPercentage / 100,
                   backgroundColor: Colors.white.withOpacity(0.3),
                   valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                  strokeWidth: isSmallScreen ? 6 : 8, // Küçük ekranlarda ince
+                  strokeWidth: 8,
                 ),
                 Center(
                   child: Column(
@@ -229,17 +218,17 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                     children: [
                       Text(
                         '${provider.completionPercentage.toInt()}%',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: isSmallScreen ? 14 : 16, // Küçük ekranlarda küçük font
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Text(
+                      const Text(
                         'Tamamlandı',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: isSmallScreen ? 7 : 8, // Küçük ekranlarda çok küçük
+                          fontSize: 8,
                         ),
                       ),
                     ],
@@ -248,32 +237,32 @@ class _AchievementsScreenState extends State<AchievementsScreen>
               ],
             ),
           ),
-          SizedBox(width: isSmallScreen ? 16 : 20), // Küçük ekranlarda daha az boşluk
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${provider.unlockedCount}/${provider.totalAchievements}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: isSmallScreen ? 24 : 28, // Küçük ekranlarda küçük font
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(
+                const Text(
                   'Başarım Kazanıldı',
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: isSmallScreen ? 12 : 14, // Küçük ekranlarda küçük font
+                    fontSize: 14,
                   ),
                 ),
-                SizedBox(height: isSmallScreen ? 8 : 12), // Küçük ekranlarda daha az boşluk
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildMiniStat('Bugün', provider.todayProgress.toString(), Icons.today, isSmallScreen),
-                    SizedBox(width: isSmallScreen ? 12 : 16),
-                    _buildMiniStat('Bu Hafta', provider.weeklyProgress.toString(), Icons.date_range, isSmallScreen),
+                    _buildMiniStat('Bugün', provider.todayProgress.toString(), Icons.today),
+                    const SizedBox(width: 16),
+                    _buildMiniStat('Bu Hafta', provider.weeklyProgress.toString(), Icons.date_range),
                   ],
                 ),
               ],
@@ -284,16 +273,16 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildMiniStat(String label, String value, IconData icon, bool isSmallScreen) {
+  Widget _buildMiniStat(String label, String value, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white70, size: isSmallScreen ? 14 : 16),
+        Icon(icon, color: Colors.white70, size: 16),
         const SizedBox(width: 4),
         Text(
           '$value $label',
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white70,
-            fontSize: isSmallScreen ? 10 : 12, // Küçük ekranlarda küçük font
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -301,46 +290,27 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildAchievementGrid(List<Achievement> achievements, bool isDarkMode, double screenWidth, double screenHeight) {
+  Widget _buildAchievementGrid(List<Achievement> achievements, bool isDarkMode) {
     if (achievements.isEmpty) {
       return Center(
         child: Text(
           'Bu kategoride henüz başarım yok',
           style: TextStyle(
-            fontSize: 14, // 16'dan 14'e
+            fontSize: 16,
             color: Colors.grey.shade500,
           ),
         ),
       );
     }
 
-    // Ekran boyutuna göre grid ayarları
-    final bool isSmallScreen = screenHeight < 700;
-    final bool isNarrowScreen = screenWidth < 400;
-    
-    // crossAxisCount'u ekran boyutuna göre ayarla
-    int crossAxisCount = 2;
-    if (isNarrowScreen) {
-      crossAxisCount = 1; // Çok dar ekranlarda tek sütun
-    }
-    
-    // childAspectRatio'yu ekran boyutuna göre ayarla
-    double childAspectRatio = 1.0;
-    if (isSmallScreen) {
-      childAspectRatio = 1.3; // Küçük ekranlarda daha geniş kartlar
-    }
-    if (isNarrowScreen) {
-      childAspectRatio = 2.5; // Tek sütunda çok geniş kartlar
-    }
-
     return GridView.builder(
-      padding: EdgeInsets.all(isSmallScreen ? 12 : 16), // Küçük ekranlarda daha az padding
+      padding: const EdgeInsets.all(16),
       physics: const BouncingScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: isSmallScreen ? 12 : 16, // Küçük ekranlarda daha az boşluk
-        mainAxisSpacing: isSmallScreen ? 12 : 16,
-        childAspectRatio: childAspectRatio,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2, // HER ZAMAN 2 SÜTUN
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.85, // SABİT ORAN - TÜM KARTLAR AYNI BOYUT
       ),
       itemCount: achievements.length,
       itemBuilder: (context, index) {
@@ -349,12 +319,12 @@ class _AchievementsScreenState extends State<AchievementsScreen>
           animation: _cardAnimationController,
           builder: (context, child) {
             final animationProgress = Curves.elasticOut.transform(
-              (_cardAnimationController.value - (index * 0.1)).clamp(0.0, 1.0),
+              (_cardAnimationController.value - (index * 0.05)).clamp(0.0, 1.0),
             );
 
             return Transform.scale(
               scale: animationProgress,
-              child: _buildAchievementCard(achievement, isDarkMode, isSmallScreen, isNarrowScreen),
+              child: _buildAchievementCard(achievement, isDarkMode),
             );
           },
         );
@@ -362,7 +332,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     );
   }
 
-  Widget _buildAchievementCard(Achievement achievement, bool isDarkMode, bool isSmallScreen, bool isNarrowScreen) {
+  Widget _buildAchievementCard(Achievement achievement, bool isDarkMode) {
     final bool isUnlocked = achievement.isUnlocked;
     final cardColor = isUnlocked ? achievement.color : Colors.grey.shade700;
     final progress = achievement.currentValue / achievement.targetValue;
@@ -373,8 +343,10 @@ class _AchievementsScreenState extends State<AchievementsScreen>
         _showAchievementDetails(achievement);
       },
       child: Container(
+        // SABİT BOYUT - OVERFLOW ÖNLENDİ
+        height: 180, // Sabit yükseklik
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(isSmallScreen ? 12 : 16), // Küçük ekranlarda daha az radius
+          borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
             colors: isUnlocked
                 ? [cardColor.withOpacity(0.8), cardColor]
@@ -387,182 +359,109 @@ class _AchievementsScreenState extends State<AchievementsScreen>
               color: isUnlocked
                   ? cardColor.withOpacity(0.3)
                   : Colors.black.withOpacity(0.2),
-              blurRadius: isUnlocked ? (isSmallScreen ? 8 : 12) : (isSmallScreen ? 4 : 6),
-              offset: Offset(0, isSmallScreen ? 2 : 4),
+              blurRadius: isUnlocked ? 12 : 6,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.all(isSmallScreen ? 12 : 16), // Küçük ekranlarda daha az padding
-          child: isNarrowScreen 
-              ? _buildHorizontalLayout(achievement, isUnlocked, progress, isSmallScreen)
-              : _buildVerticalLayout(achievement, isUnlocked, progress, isSmallScreen),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // İkon ve progress - SABİT BOYUT
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Stack(
+                  children: [
+                    if (!isUnlocked && achievement.targetValue > 1)
+                      CircularProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.white.withOpacity(0.3),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white.withOpacity(0.8),
+                        ),
+                        strokeWidth: 3,
+                      ),
+                    Center(
+                      child: Icon(
+                        isUnlocked ? achievement.icon : Icons.lock_outline,
+                        size: 24,
+                        color: Colors.white.withOpacity(isUnlocked ? 1.0 : 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Başlık - SABİT BOYUT
+              Container(
+                height: 36, // Sabit yükseklik
+                alignment: Alignment.center,
+                child: Text(
+                  achievement.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    fontSize: 13,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 8),
+              
+              // Açıklama - SABİT BOYUT
+              Container(
+                height: 24, // Sabit yükseklik
+                alignment: Alignment.center,
+                child: Text(
+                  achievement.description,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(isUnlocked ? 0.9 : 0.6),
+                    fontSize: 10,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              
+              // Progress metni - SABİT BOYUT
+              Container(
+                height: 20, // Sabit yükseklik
+                alignment: Alignment.center,
+                child: (!isUnlocked && achievement.targetValue > 1)
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${achievement.currentValue}/${achievement.targetValue}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
+                    : const SizedBox(),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Dar ekranlar için yatay layout
-  Widget _buildHorizontalLayout(Achievement achievement, bool isUnlocked, double progress, bool isSmallScreen) {
-    return Row(
-      children: [
-        // İkon ve progress
-        SizedBox(
-          width: 50,
-          height: 50,
-          child: Stack(
-            children: [
-              if (!isUnlocked && achievement.targetValue > 1)
-                CircularProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.white.withOpacity(0.3),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Colors.white.withOpacity(0.8),
-                  ),
-                  strokeWidth: 3,
-                ),
-              Center(
-                child: Icon(
-                  isUnlocked ? achievement.icon : Icons.lock_outline,
-                  size: 24,
-                  color: Colors.white.withOpacity(isUnlocked ? 1.0 : 0.7),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        
-        // Metin bilgileri
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                achievement.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                achievement.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(isUnlocked ? 0.9 : 0.6),
-                  fontSize: 11,
-                ),
-              ),
-              if (!isUnlocked && achievement.targetValue > 1) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '${achievement.currentValue}/${achievement.targetValue}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Normal ekranlar için dikey layout
-  Widget _buildVerticalLayout(Achievement achievement, bool isUnlocked, double progress, bool isSmallScreen) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // İkon ve progress
-        SizedBox(
-          width: isSmallScreen ? 50 : 60, // Küçük ekranlarda daha küçük
-          height: isSmallScreen ? 50 : 60,
-          child: Stack(
-            children: [
-              if (!isUnlocked && achievement.targetValue > 1)
-                CircularProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.white.withOpacity(0.3),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Colors.white.withOpacity(0.8),
-                  ),
-                  strokeWidth: isSmallScreen ? 3 : 4,
-                ),
-              Center(
-                child: Icon(
-                  isUnlocked ? achievement.icon : Icons.lock_outline,
-                  size: isSmallScreen ? 24 : 32, // Küçük ekranlarda daha küçük
-                  color: Colors.white.withOpacity(isUnlocked ? 1.0 : 0.7),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 8 : 12), // Küçük ekranlarda daha az boşluk
-        
-        // Başlık
-        Text(
-          achievement.name,
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-            fontSize: isSmallScreen ? 12 : 14, // Küçük ekranlarda daha küçük font
-            height: 1.2,
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 4 : 8), // Küçük ekranlarda daha az boşluk
-        
-        // Açıklama
-        Text(
-          achievement.description,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white.withOpacity(isUnlocked ? 0.9 : 0.6),
-            fontSize: isSmallScreen ? 10 : 11, // Küçük ekranlarda daha küçük font
-          ),
-        ),
-        
-        // Progress metni
-        if (!isUnlocked && achievement.targetValue > 1) ...[
-          SizedBox(height: isSmallScreen ? 4 : 8),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isSmallScreen ? 6 : 8, 
-              vertical: isSmallScreen ? 2 : 4
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10), // 12'den 10'a
-            ),
-            child: Text(
-              '${achievement.currentValue}/${achievement.targetValue}',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isSmallScreen ? 9 : 10, // Küçük ekranlarda daha küçük font
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  // Diğer metodlar aynı kalacak...
   void _showAchievementDetails(Achievement achievement) {
     showDialog(
       context: context,
@@ -689,6 +588,13 @@ class _AchievementsScreenState extends State<AchievementsScreen>
               provider.addProgress('first_workout', 1);
             },
             child: const Text('İlk Antrenman'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              provider.addProgress('first_meal', 1);
+            },
+            child: const Text('İlk Yemek'),
           ),
         ],
       ),
