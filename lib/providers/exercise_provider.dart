@@ -1,9 +1,10 @@
-// lib/providers/exercise_provider.dart - PERFORMANCE OPTIMIZED
+// lib/providers/exercise_provider.dart - GELİŞTİRİLMİŞ ADIM SAYACI
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:formdakal/providers/user_provider.dart';
+import 'package:pedometer/pedometer.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/exercise_model.dart';
@@ -15,56 +16,41 @@ class ExerciseProvider with ChangeNotifier {
   late AchievementProvider _achievementProvider;
   late UserProvider _userProvider;
 
-  // Core Data
   List<CompletedExercise> _completedExercises = [];
   int _dailySteps = 0;
   int _dailyActiveMinutes = 0;
 
-  // Step Counter Optimization
+  // ADIM SAYACI SİSTEMLERİ
+  StreamSubscription<StepCount>? _stepCountStream;
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
-  int _stepCount = 0;
-  double _lastMagnitude = 0;
-  bool _isStepDetected = false;
-  int _savedStepsToday = 0;
-  DateTime _lastStepTime = DateTime.now();
-  Timer? _stepDebounceTimer;
+  
+  // AKILLI PATTERN ALGILAMA
+  List<double> _accelerometerBuffer = [];
+  List<DateTime> _stepTimestamps = [];
+  int _initialStepCount = 0;
+  int _todayStartSteps = 0;
+  bool _useSystemPedometer = true;
+  
+  // YÜRÜME PATTERN'İ ALGILAMA
+  int _consecutiveHighReadings = 0;
+  DateTime? _lastStepTime;
+  bool _isWalkingPattern = false;
+  
+  // AYARLAR
+  static const double _walkingThreshold = 2.5; // Yürüme için minimum ivme
+  static const double _maxAcceleration = 25.0; // Sallama filtresi
+  static const int _minTimeBetweenSteps = 300; // Minimum adım aralığı (ms)
+  static const int _maxTimeBetweenSteps = 2000; // Maksimum adım aralığı (ms)
+  static const int _patternBufferSize = 10; // Pattern analizi için buffer
 
-  // Performance Optimization
-  Timer? _saveTimer;
-  bool _needsSaving = false;
-  int _lastNotificationStep = 0;
-  static const int _notificationThreshold = 10; // Her 10 adımda bir bildir
-  static const int _saveInterval = 5000; // 5 saniyede bir kaydet
-
-  // Gelişmiş adım algılama
-  static const double _stepThreshold = 8.0;
-  static const int _minTimeBetweenSteps = 200; // milliseconds
-  static const int _smoothingWindowSize = 5;
-  final List<double> _magnitudeHistory = [];
-
-  // Caching
-  String? _cachedTodayKey;
-  DateTime? _lastCacheUpdate;
-
-  // Keys
   static const _exercisesKey = 'completed_exercises';
   static const _stepsKey = 'daily_steps_';
   static const _minutesKey = 'daily_minutes_';
+  static const _initialStepsKey = 'initial_steps_';
 
   ExerciseProvider(this._prefs, this._achievementProvider, this._userProvider) {
-    _initProvider();
-  }
-
-  // Getters
-  List<CompletedExercise> get completedExercises => List.unmodifiable(_completedExercises);
-  int get dailySteps => _dailySteps;
-  int get dailyActiveMinutes => _dailyActiveMinutes;
-
-  /// Provider initialization - optimized startup
-  Future<void> _initProvider() async {
-    await loadData();
-    _initStepCounter();
-    _startPeriodicSave();
+    loadData();
+    _initAdvancedStepCounter();
   }
 
   void updateDependencies(AchievementProvider achProvider, UserProvider usrProvider) {
@@ -72,182 +58,270 @@ class ExerciseProvider with ChangeNotifier {
     _userProvider = usrProvider;
   }
 
-  /// Optimized step counter with advanced algorithm
-  void _initStepCounter() {
+  List<CompletedExercise> get completedExercises => _completedExercises;
+  int get dailySteps => _dailySteps;
+  int get dailyActiveMinutes => _dailyActiveMinutes;
+
+  /// GELİŞTİRİLMİŞ ADIM SAYACI - AKILLI PATTERN ALGILIYOR
+  void _initAdvancedStepCounter() async {
+    print('🚀 Gelişmiş adım sayacı başlatılıyor...');
+    
+    // Önce sistem pedometer'ı dene
+    await _trySystemPedometer();
+    
+    // Sistem yoksa akıllı accelerometer kullan
+    if (!_useSystemPedometer) {
+      await _initSmartAccelerometer();
+    }
+  }
+
+  /// Sistem Pedometer'ı Dene (En Doğru Yöntem)
+  Future<void> _trySystemPedometer() async {
+    try {
+      _stepCountStream = Pedometer.stepCountStream.listen(
+        _onSystemStepCount,
+        onError: (error) {
+          print('❌ Sistem pedometer hatası: $error');
+          _useSystemPedometer = false;
+          _initSmartAccelerometer();
+        },
+        cancelOnError: false,
+      );
+      
+      print('✅ Sistem pedometer aktif');
+      _useSystemPedometer = true;
+    } catch (e) {
+      print('❌ Sistem pedometer başlatılamadı: $e');
+      _useSystemPedometer = false;
+      await _initSmartAccelerometer();
+    }
+  }
+
+  /// Sistem Adım Sayacı Verisi
+  void _onSystemStepCount(StepCount event) async {
+    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+    
+    if (_initialStepCount == 0) {
+      _initialStepCount = event.steps;
+      _todayStartSteps = _prefs.getInt(_initialStepsKey + todayKey) ?? event.steps;
+      
+      final savedDate = _prefs.getString('last_step_date') ?? '';
+      if (savedDate != todayKey) {
+        _todayStartSteps = event.steps;
+        await _prefs.setInt(_initialStepsKey + todayKey, event.steps);
+        await _prefs.setString('last_step_date', todayKey);
+      }
+    }
+
+    final todaySteps = event.steps - _todayStartSteps;
+    
+    if (todaySteps >= 0 && todaySteps != _dailySteps) {
+      _dailySteps = todaySteps;
+      await _saveSteps();
+      notifyListeners();
+      _checkStepAchievements();
+      print('📱 Sistem adım: $_dailySteps (Toplam: ${event.steps})');
+    }
+  }
+
+  /// Akıllı Accelerometer (Fallback)
+  Future<void> _initSmartAccelerometer() async {
+    print('🧠 Akıllı accelerometer aktif');
+    
     _accelerometerSubscription = userAccelerometerEvents.listen(
-      _detectStepAdvanced,
+      _onSmartAccelerometerEvent,
       onError: (error) {
-        debugPrint("🚨 Accelerometer error: $error");
-        _handleSensorError();
+        print('❌ Accelerometer hatası: $error');
       },
-      cancelOnError: false, // Don't cancel on error, retry
+      cancelOnError: false,
     );
   }
 
-  /// Advanced step detection with smoothing and debouncing
-  void _detectStepAdvanced(UserAccelerometerEvent event) {
-    try {
-      // Calculate vector magnitude with square root
-      double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      
-      // Magnitude smoothing
-      _magnitudeHistory.add(magnitude);
-      if (_magnitudeHistory.length > _smoothingWindowSize) {
-        _magnitudeHistory.removeAt(0);
-      }
-      
-      // Smoothed magnitude
-      double smoothedMagnitude = _magnitudeHistory.reduce((a, b) => a + b) / _magnitudeHistory.length;
-      
-      // Time-based filtering
-      DateTime now = DateTime.now();
-      bool enoughTimePassed = now.difference(_lastStepTime).inMilliseconds > _minTimeBetweenSteps;
-      
-      // Step detection conditions
-      if (_shouldDetectStep(smoothedMagnitude, magnitude, enoughTimePassed)) {
-        _processNewStep(now);
-      }
-      
-      _lastMagnitude = magnitude;
-    } catch (e) {
-      debugPrint("🚨 Step detection error: $e");
-    }
-  }
-
-  /// Optimized step detection logic
-  bool _shouldDetectStep(double smoothedMagnitude, double magnitude, bool enoughTimePassed) {
-    return smoothedMagnitude > _stepThreshold && 
-           enoughTimePassed && 
-           magnitude > _lastMagnitude && 
-           !_isStepDetected &&
-           _magnitudeHistory.length >= 3;
-  }
-
-  /// Process new step with optimizations
-  void _processNewStep(DateTime now) {
-    _stepCount++;
-    _isStepDetected = true;
-    _lastStepTime = now;
-    
-    // Update step count
-    _dailySteps = _savedStepsToday + _stepCount;
-    _needsSaving = true;
-    
-    // Debounced notification - only notify UI every N steps
-    if (_dailySteps - _lastNotificationStep >= _notificationThreshold) {
-      _lastNotificationStep = _dailySteps;
-      notifyListeners();
-    }
-    
-    // Reset step detection flag
-    _stepDebounceTimer?.cancel();
-    _stepDebounceTimer = Timer(Duration(milliseconds: _minTimeBetweenSteps), () {
-      _isStepDetected = false;
-    });
-
-    // Debug logging (remove in production)
-    if (_stepCount % 100 == 0) {
-      debugPrint("🦶 Steps: $_dailySteps (magnitude: ${_lastMagnitude.toStringAsFixed(2)})");
-    }
-  }
-
-  /// Handle sensor errors gracefully
-  void _handleSensorError() {
-    _accelerometerSubscription?.cancel();
-    
-    // Retry after delay
-    Timer(const Duration(seconds: 2), () {
-      if (!_isDisposed) {
-        _initStepCounter();
-      }
-    });
-  }
-
-  /// Periodic save system - reduces I/O operations
-  void _startPeriodicSave() {
-    _saveTimer = Timer.periodic(Duration(milliseconds: _saveInterval), (timer) {
-      if (_needsSaving) {
-        _saveStepsOptimized();
-        _needsSaving = false;
-      }
-    });
-  }
-
-  /// Optimized data loading with caching
-  Future<void> loadData() async {
-    try {
-      // Load exercises
-      final exerciseJson = _prefs.getString(_exercisesKey);
-      if (exerciseJson != null) {
-        final List<dynamic> decoded = jsonDecode(exerciseJson);
-        _completedExercises = decoded
-            .map((item) => CompletedExercise.fromJson(item))
-            .toList();
-      }
-
-      // Load today's data with caching
-      final todayKey = _getTodayKey();
-      _savedStepsToday = _prefs.getInt(_stepsKey + todayKey) ?? 0;
-      _dailySteps = _savedStepsToday;
-      _dailyActiveMinutes = _prefs.getInt(_minutesKey + todayKey) ?? 0;
-
-      // Check if it's a new day - reset counters
-      _checkNewDay();
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint("🚨 Data loading error: $e");
-    }
-  }
-
-  /// Check if it's a new day and reset counters
-  void _checkNewDay() {
-    final currentDay = _getTodayKey();
-    if (_cachedTodayKey != null && _cachedTodayKey != currentDay) {
-      // New day detected - reset step counter
-      _stepCount = 0;
-      _savedStepsToday = 0;
-      _dailySteps = 0;
-      debugPrint("🌅 New day detected - resetting step counter");
-    }
-    _cachedTodayKey = currentDay;
-    _lastCacheUpdate = DateTime.now();
-  }
-
-  /// Optimized step saving - reduces SharedPreferences calls
-  Future<void> _saveStepsOptimized() async {
-    try {
-      final todayKey = _getTodayKey();
-      await _prefs.setInt(_stepsKey + todayKey, _dailySteps);
-    } catch (e) {
-      debugPrint("🚨 Step saving error: $e");
-    }
-  }
-
-  /// Get today key with caching
-  String _getTodayKey() {
+  /// AKILLI ACCELEROMETER - PATTERN ALGILIYOR
+  void _onSmartAccelerometerEvent(UserAccelerometerEvent event) {
+    final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
     final now = DateTime.now();
     
-    // Cache for 1 minute to avoid repeated date calculations
-    if (_cachedTodayKey != null && 
-        _lastCacheUpdate != null && 
-        now.difference(_lastCacheUpdate!).inMinutes < 1) {
-      return _cachedTodayKey!;
+    // Buffer'a ekle
+    _accelerometerBuffer.add(magnitude);
+    if (_accelerometerBuffer.length > _patternBufferSize) {
+      _accelerometerBuffer.removeAt(0);
     }
     
-    _cachedTodayKey = now.toIso8601String().substring(0, 10);
-    _lastCacheUpdate = now;
-    return _cachedTodayKey!;
+    // Yürüme pattern'i kontrolü
+    _analyzeWalkingPattern(magnitude, now);
   }
 
-  /// Optimized exercise operations
-  Future<void> _saveCompletedExercises() async {
-    try {
-      final jsonList = _completedExercises.map((exercise) => exercise.toJson()).toList();
-      await _prefs.setString(_exercisesKey, jsonEncode(jsonList));
-    } catch (e) {
-      debugPrint("🚨 Exercise saving error: $e");
+  /// YÜRÜME PATTERN'İ ANALİZİ
+  void _analyzeWalkingPattern(double magnitude, DateTime now) {
+    // 1. Çok yüksek ivme = telefon sallama (filtrele)
+    if (magnitude > _maxAcceleration) {
+      print('🚫 Çok yüksek ivme - sallama algılandı: ${magnitude.toStringAsFixed(2)}');
+      _consecutiveHighReadings++;
+      if (_consecutiveHighReadings > 3) {
+        _isWalkingPattern = false; // Sallama pattern'i
+      }
+      return;
     }
+    
+    // 2. Normal ivme aralığında ise reset
+    if (magnitude < _walkingThreshold * 2) {
+      _consecutiveHighReadings = 0;
+    }
+    
+    // 3. Yürüme eşiği kontrolü
+    if (magnitude < _walkingThreshold) {
+      return; // Çok düşük ivme
+    }
+    
+    // 4. Buffer analizi - düzenli pattern aranıyor
+    if (_accelerometerBuffer.length >= _patternBufferSize) {
+      _isWalkingPattern = _detectWalkingPattern();
+    }
+    
+    // 5. Peak detection (yürüme pattern'i varsa)
+    if (_isWalkingPattern && _isPeakDetected(magnitude)) {
+      _validateAndCountStep(now);
+    }
+  }
+
+  /// YÜRÜME PATTERN'İ ALGILA
+  bool _detectWalkingPattern() {
+    if (_accelerometerBuffer.length < _patternBufferSize) return false;
+    
+    // Pattern özellikleri
+    double mean = _accelerometerBuffer.reduce((a, b) => a + b) / _accelerometerBuffer.length;
+    double variance = 0;
+    
+    for (double value in _accelerometerBuffer) {
+      variance += pow(value - mean, 2);
+    }
+    variance /= _accelerometerBuffer.length;
+    double stdDeviation = sqrt(variance);
+    
+    // Yürüme için ideal değerler
+    bool steadyPattern = stdDeviation > 0.8 && stdDeviation < 4.0; // Düzenli salınım
+    bool moderateIntensity = mean > 1.5 && mean < 8.0; // Orta yoğunluk
+    
+    // Frequency analizi (basit)
+    int peakCount = 0;
+    for (int i = 1; i < _accelerometerBuffer.length - 1; i++) {
+      if (_accelerometerBuffer[i] > _accelerometerBuffer[i-1] && 
+          _accelerometerBuffer[i] > _accelerometerBuffer[i+1] &&
+          _accelerometerBuffer[i] > mean + stdDeviation * 0.5) {
+        peakCount++;
+      }
+    }
+    
+    bool reasonableFrequency = peakCount >= 2 && peakCount <= 6; // 2-6 peak (1-3 adım)
+    
+    bool isWalking = steadyPattern && moderateIntensity && reasonableFrequency;
+    
+    if (isWalking != _isWalkingPattern) {
+      print(isWalking ? '🚶‍♂️ Yürüme pattern algılandı' : '⏸️ Yürüme durdu');
+    }
+    
+    return isWalking;
+  }
+
+  /// PEAK DETECTION
+  bool _isPeakDetected(double magnitude) {
+    if (_accelerometerBuffer.length < 3) return false;
+    
+    double threshold = _walkingThreshold * 1.5;
+    
+    // Local peak check
+    int lastIndex = _accelerometerBuffer.length - 1;
+    if (lastIndex >= 2) {
+      double prev = _accelerometerBuffer[lastIndex - 1];
+      double current = magnitude;
+      double prevPrev = _accelerometerBuffer[lastIndex - 2];
+      
+      return current > prev && prev > prevPrev && current > threshold;
+    }
+    
+    return false;
+  }
+
+  /// ADIM DOĞRULAMA VE SAYMA
+  void _validateAndCountStep(DateTime now) {
+    // Zaman kontrolü
+    if (_lastStepTime != null) {
+      int timeDiff = now.difference(_lastStepTime!).inMilliseconds;
+      
+      // Çok hızlı adım (gürültü filtresi)
+      if (timeDiff < _minTimeBetweenSteps) {
+        return;
+      }
+      
+      // Çok yavaş adım (muhtemelen yürüme bitti)
+      if (timeDiff > _maxTimeBetweenSteps) {
+        _isWalkingPattern = false;
+      }
+    }
+    
+    // Adım sayma şartları karşılanıyor
+    if (_isWalkingPattern) {
+      _recordStep(now);
+    }
+  }
+
+  /// ADIM KAYDETME
+  void _recordStep(DateTime now) {
+    _stepTimestamps.add(now);
+    _lastStepTime = now;
+    
+    // Eski timestamp'leri temizle (son 10 saniye)
+    _stepTimestamps.removeWhere((time) => 
+        now.difference(time).inSeconds > 10);
+    
+    _dailySteps++;
+    _saveSteps();
+    notifyListeners();
+    _checkStepAchievements();
+    
+    print('👣 Adım kaydedildi: $_dailySteps (Pattern: $_isWalkingPattern)');
+  }
+
+  /// Adım başarımlarını kontrol et
+  void _checkStepAchievements() {
+    if (_dailySteps >= 1000) {
+      _achievementProvider.unlockAchievement('first_1000_steps');
+    }
+    if (_dailySteps >= 5000) {
+      _achievementProvider.unlockAchievement('daily_step_goal');
+    }
+    if (_dailySteps >= 10000) {
+      _achievementProvider.unlockAchievement('step_master');
+    }
+  }
+
+  /// Kayıtlı verileri SharedPreferences'tan yükler.
+  Future<void> loadData() async {
+    final exerciseJson = _prefs.getString(_exercisesKey);
+    if (exerciseJson != null) {
+      final List<dynamic> decoded = jsonDecode(exerciseJson);
+      _completedExercises =
+          decoded.map((item) => CompletedExercise.fromJson(item)).toList();
+    }
+    
+    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+    _dailySteps = _prefs.getInt(_stepsKey + todayKey) ?? 0;
+    _dailyActiveMinutes = _prefs.getInt(_minutesKey + todayKey) ?? 0;
+    
+    notifyListeners();
+  }
+
+  /// Günlük adım sayısını kaydeder.
+  Future<void> _saveSteps() async {
+    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+    await _prefs.setInt(_stepsKey + todayKey, _dailySteps);
+  }
+
+  Future<void> _saveCompletedExercises() async {
+    final jsonList =
+        _completedExercises.map((exercise) => exercise.toJson()).toList();
+    await _prefs.setString(_exercisesKey, jsonEncode(jsonList));
   }
 
   Future<void> addCompletedExercise(CompletedExercise exercise) async {
@@ -266,135 +340,83 @@ class ExerciseProvider with ChangeNotifier {
   }
 
   Future<void> removeCompletedExerciseById(String id) async {
-    final initialLength = _completedExercises.length;
     _completedExercises.removeWhere((exercise) => exercise.id == id);
-    
-    if (_completedExercises.length != initialLength) {
-      await _saveCompletedExercises();
-      notifyListeners();
-    }
-  }
-
-  /// Achievement checking with optimization
-  void _checkWorkoutAchievements() {
-    try {
-      if (_completedExercises.length == 1) {
-        _achievementProvider.unlockAchievement('first_workout');
-      }
-      // Add more achievement checks here
-    } catch (e) {
-      debugPrint("🚨 Achievement check error: $e");
-    }
-  }
-
-  /// Optimized calorie calculation with caching
-  double getDailyBurnedCalories(DateTime date) {
-    try {
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      // Exercise calories
-      double exerciseCalories = _completedExercises
-          .where((exercise) =>
-              exercise.completedAt.isAfter(startOfDay) &&
-              exercise.completedAt.isBefore(endOfDay))
-          .fold(0.0, (total, exercise) => total + exercise.burnedCalories);
-
-      // Step calories (only for today)
-      double stepCalories = 0.0;
-      final todayKey = _getTodayKey();
-      final dateKey = date.toIso8601String().substring(0, 10);
-      
-      if (dateKey == todayKey && _dailySteps > 0) {
-        final userWeight = _userProvider.user?.weight ?? 70.0;
-        if (userWeight > 0) {
-          stepCalories = CalorieService.calculateStepCalories(_dailySteps, userWeight);
-        }
-      }
-      
-      return exerciseCalories + stepCalories;
-    } catch (e) {
-      debugPrint("🚨 Calorie calculation error: $e");
-      return 0.0;
-    }
-  }
-
-  /// Optimized exercise minutes calculation
-  int getDailyExerciseMinutes(DateTime date) {
-    try {
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-      
-      return _completedExercises
-          .where((exercise) =>
-              exercise.completedAt.isAfter(startOfDay) &&
-              exercise.completedAt.isBefore(endOfDay))
-          .fold(0, (total, exercise) => total + exercise.durationMinutes);
-    } catch (e) {
-      debugPrint("🚨 Exercise minutes calculation error: $e");
-      return 0;
-    }
-  }
-
-  /// Manual step addition for testing
-  void addManualSteps(int steps) {
-    _dailySteps += steps;
-    _needsSaving = true;
-    notifyListeners();
-    debugPrint("🧪 Manual steps added: $steps, Total: $_dailySteps");
-  }
-
-  /// Reset daily steps (for testing or new day)
-  Future<void> resetDailySteps() async {
-    _stepCount = 0;
-    _savedStepsToday = 0;
-    _dailySteps = 0;
-    _needsSaving = true;
-    await _saveStepsOptimized();
-    notifyListeners();
-    debugPrint("🔄 Daily steps reset");
-  }
-
-  /// Force save all data
-  Future<void> forceSave() async {
-    if (_needsSaving) {
-      await _saveStepsOptimized();
-      _needsSaving = false;
-    }
     await _saveCompletedExercises();
-    debugPrint("💾 Force save completed");
+    notifyListeners();
   }
 
-  /// Get step statistics
-  Map<String, dynamic> getStepStatistics() {
-    return {
-      'dailySteps': _dailySteps,
-      'sessionSteps': _stepCount,
-      'savedSteps': _savedStepsToday,
-      'isDetecting': _accelerometerSubscription != null,
-      'lastMagnitude': _lastMagnitude,
-      'historySize': _magnitudeHistory.length,
-    };
+  void _checkWorkoutAchievements() {
+    if (_completedExercises.length == 1) {
+      _achievementProvider.unlockAchievement('first_workout');
+    }
   }
 
-  // Disposal tracking
-  bool _isDisposed = false;
+  double getDailyBurnedCalories(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
 
+    double exerciseCalories = _completedExercises
+        .where((exercise) =>
+            exercise.completedAt.isAfter(startOfDay) &&
+            exercise.completedAt.isBefore(endOfDay))
+        .fold(0.0, (total, exercise) => total + exercise.burnedCalories);
+
+    final userWeight = _userProvider.user?.weight ?? 70.0;
+    double stepCalories = 0.0;
+    
+    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+    final dateKey = date.toIso8601String().substring(0, 10);
+    if (dateKey == todayKey && _dailySteps > 0 && userWeight > 0) {
+      stepCalories = CalorieService.calculateStepCalories(_dailySteps, userWeight);
+    }
+    
+    return exerciseCalories + stepCalories;
+  }
+
+  int getDailyExerciseMinutes(DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return _completedExercises
+        .where((exercise) =>
+            exercise.completedAt.isAfter(startOfDay) &&
+            exercise.completedAt.isBefore(endOfDay))
+        .fold(0, (total, exercise) => total + exercise.durationMinutes);
+  }
+
+  /// Manuel adım ekleme (test/debug için)
+  Future<void> addManualSteps(int steps) async {
+    _dailySteps += steps;
+    await _saveSteps();
+    _checkStepAchievements();
+    notifyListeners();
+  }
+
+  /// Adım sayacını sıfırla (test için)
+  Future<void> resetDailySteps() async {
+    _dailySteps = 0;
+    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+    await _prefs.remove(_stepsKey + todayKey);
+    await _prefs.remove(_initialStepsKey + todayKey);
+    _initialStepCount = 0;
+    _todayStartSteps = 0;
+    notifyListeners();
+  }
+
+  /// Tüm verileri zorla kaydet
+  Future<void> forceSave() async {
+    await _saveSteps();
+    await _saveCompletedExercises();
+  }
+
+  /// Debug bilgisi
+  String getStepCounterStatus() {
+    return _useSystemPedometer ? 'Sistem Pedometer' : 'Akıllı Accelerometer';
+  }
+  
   @override
   void dispose() {
-    _isDisposed = true;
-    
-    // Cancel all timers and subscriptions
+    _stepCountStream?.cancel();
     _accelerometerSubscription?.cancel();
-    _saveTimer?.cancel();
-    _stepDebounceTimer?.cancel();
-    
-    // Force save before disposal
-    if (_needsSaving) {
-      _saveStepsOptimized();
-    }
-    
-    debugPrint("🗑️ ExerciseProvider disposed");
     super.dispose();
   }
 }

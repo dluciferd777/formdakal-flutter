@@ -1,14 +1,12 @@
-// lib/widgets/expandable_activity_card.dart
+// lib/widgets/expandable_activity_card.dart - TAM DÜZELTİLMİŞ VERSİYON
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:share_plus/share_plus.dart'; // Kullanılmadığı için kaldırıldı
 import '../models/exercise_model.dart';
 import '../providers/achievement_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/user_provider.dart';
 import '../utils/colors.dart';
-// import '../services/calorie_service.dart'; // Kullanılmadığı için kaldırıldı
 
 enum ActivityCardType {
   fitness,
@@ -257,7 +255,7 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
         final remainingCalories = targetCalories - consumedCalories + burnedCalories;
         
         final bmr = user.bmr.toInt();
-        final tdee = user.dailyCalorieNeeds.toInt(); // TDEE, günlük kalori ihtiyacı olarak kabul edilebilir
+        final tdee = user.dailyCalorieNeeds.toInt();
 
         return Container(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -269,11 +267,11 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
                 children: [
                   Expanded(
                     child: Card(
-                      color: AppColors.calorieColor.withOpacity(0.2), // Alınan kalori rengi
+                      color: AppColors.calorieColor.withOpacity(0.2),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       child: Padding(
-                        padding: const EdgeInsets.all(12.0), // Padding azaltıldı
+                        padding: const EdgeInsets.all(12.0),
                         child: Column(
                           children: [
                             Text('Alınan', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 14, color: isDarkMode ? Colors.white70 : Colors.black54)),
@@ -285,14 +283,14 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12), // Kartlar arası boşluk
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Card(
-                      color: AppColors.primaryGreen.withOpacity(0.2), // Yakılan kalori rengi
+                      color: AppColors.primaryGreen.withOpacity(0.2),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       child: Padding(
-                        padding: const EdgeInsets.all(12.0), // Padding azaltıldı
+                        padding: const EdgeInsets.all(12.0),
                         child: Column(
                           children: [
                             Text('Yakılan', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 14, color: isDarkMode ? Colors.white70 : Colors.black54)),
@@ -306,7 +304,7 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
                   ),
                 ],
               ),
-              const SizedBox(height: 20), // Yeni kartlar ile özet arasında boşluk
+              const SizedBox(height: 20),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Günlük Kalori Özeti', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -330,21 +328,38 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
     );
   }
 
+  // DÜZELTİLMİŞ SU TÜKETİMİ CONTENT - OVERFLOW HATASI ÇÖZÜLDİ
   Widget _buildWaterContent() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
         children: [
           const Divider(),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildWaterButton(context, 250),
-              _buildWaterButton(context, 500),
-              _buildWaterButton(context, 750),
-            ],
-          ),
+          
+          // Küçük ekranlar için dikey layout, büyük ekranlar için yatay
+          isSmallScreen 
+              ? Column(
+                  children: [
+                    _buildWaterButton(context, 250, isCompact: true),
+                    const SizedBox(height: 8),
+                    _buildWaterButton(context, 500, isCompact: true),
+                    const SizedBox(height: 8),
+                    _buildWaterButton(context, 750, isCompact: true),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: _buildWaterButton(context, 250)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildWaterButton(context, 500)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildWaterButton(context, 750)),
+                  ],
+                ),
         ],
       ),
     );
@@ -394,18 +409,40 @@ class _ExpandableActivityCardState extends State<ExpandableActivityCard>
     );
   }
 
-  Widget _buildWaterButton(BuildContext context, int amountMl) {
-    return ElevatedButton.icon(
-      icon: const Icon(Icons.add, size: 18),
-      label: Text('$amountMl ml'),
-      onPressed: () {
-        Provider.of<UserProvider>(context, listen: false).addWater(amountMl / 1000.0);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$amountMl ml su eklendi.'), backgroundColor: AppColors.success));
-      },
-      style: ElevatedButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: widget.color.withOpacity(0.8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  // DÜZELTİLMİŞ SU BUTONU - OVERFLOW HATASI ÇÖZÜLDİ
+  Widget _buildWaterButton(BuildContext context, int amountMl, {bool isCompact = false}) {
+    return SizedBox(
+      width: isCompact ? double.infinity : null, // Compact modda tam genişlik
+      height: isCompact ? 40 : 36, // Compact modda biraz daha yüksek
+      child: ElevatedButton.icon(
+        icon: Icon(Icons.add, size: isCompact ? 16 : 18),
+        label: Text(
+          '$amountMl ml',
+          style: TextStyle(fontSize: isCompact ? 12 : 14), // Compact modda küçük font
+        ),
+        onPressed: () {
+          Provider.of<UserProvider>(context, listen: false).addWater(amountMl / 1000.0);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$amountMl ml su eklendi.'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 1), // Kısa süre
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: widget.color.withOpacity(0.8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 16 : 12,
+            vertical: isCompact ? 8 : 4,
+          ),
+          textStyle: TextStyle(
+            fontSize: isCompact ? 12 : 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
