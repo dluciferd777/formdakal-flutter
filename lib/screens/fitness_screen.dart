@@ -33,29 +33,31 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      // DÜZELTİLMİŞ APPBAR - Tema uyumlu
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen, // YENİ: Her zaman yeşil
-        foregroundColor: Colors.white, // YENİ: Yazılar beyaz
-        elevation: 0,
+        backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: isDarkMode ? 0 : 2,
+        centerTitle: true,
         title: const Text(
           'Fitness & Egzersiz',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        iconTheme: const IconThemeData(color: Colors.white), // YENİ: İkonlar beyaz
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: Icon(
               context.watch<ThemeProvider>().isDarkMode
                   ? Icons.light_mode
                   : Icons.dark_mode,
-              color: Colors.white, // YENİ: İkon beyaz
+              color: Colors.white,
             ),
             onPressed: () => context.read<ThemeProvider>().toggleTheme(),
           ),
         ],
       ),
       body: SafeArea(
-        bottom: true, // YENİ: Navigasyon bar koruması
+        bottom: true,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -71,10 +73,10 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 6),
-                      elevation: isDarkMode ? 6 : 4, // YENİ: Güçlü gölge
+                      elevation: isDarkMode ? 6 : 4,
                       shadowColor: isDarkMode
                           ? Colors.black.withOpacity(0.7)
-                          : Colors.grey.withOpacity(0.4), // YENİ: Gölge rengi
+                          : Colors.grey.withOpacity(0.4),
                       child: ExpansionTile(
                         tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         leading: Icon(_getCategoryIcon(categoryKey), color: AppColors.primaryGreen, size: 20),
@@ -153,10 +155,10 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                         child: Card(
                           margin: EdgeInsets.zero,
-                          elevation: isDarkMode ? 6 : 4, // YENİ: Güçlü gölge
+                          elevation: isDarkMode ? 6 : 4,
                           shadowColor: isDarkMode
                               ? Colors.black.withOpacity(0.7)
-                              : Colors.grey.withOpacity(0.4), // YENİ: Gölge rengi
+                              : Colors.grey.withOpacity(0.4),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             title: Text(exercise.exerciseName, 

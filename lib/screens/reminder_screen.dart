@@ -1,4 +1,4 @@
-// lib/screens/reminder_screen.dart - TÜM HATALAR GİDERİLDİ VE EKSİKLER TAMAMLANDI
+// lib/screens/reminder_screen.dart - KARTLAR KÜÇÜLTÜLDÜ
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -31,7 +31,6 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
         });
       }
     });
-    // TODO: Kaydedilmiş spor saatini SharedPreferences'dan yükle
   }
 
   @override
@@ -43,9 +42,15 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hatırlatıcılar'),
+        backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: isDarkMode ? 0 : 2,
+        centerTitle: true,
         actions: [
           if (_currentIndex == 1)
             IconButton(
@@ -56,12 +61,12 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primaryGreen,
-          labelColor: AppColors.primaryGreen,
-          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(icon: Icon(Icons.settings), text: 'Genel Ayarlar'),
-            Tab(icon: Icon(Icons.schedule), text: 'Hatırlatıcılarım'),
+            Tab(icon: Icon(Icons.settings, size: 20), text: 'Genel Ayarlar'),
+            Tab(icon: Icon(Icons.schedule, size: 20), text: 'Hatırlatıcılarım'),
           ],
         ),
       ),
@@ -75,10 +80,10 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
     );
   }
 
-  // BİLDİRİM AYARLARI SEKMESİ
+  // BİLDİRİM AYARLARI SEKMESİ - KÜÇÜLTÜLMÜŞ KARTLAR
   Widget _buildNotificationSettingsTab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // 16'dan 12'ye düşürüldü
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -94,7 +99,7 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16), // 24'ten 16'ya düşürüldü
           _buildNotificationSection(
             title: '💊 Vitamin Hatırlatmaları',
             subtitle: 'Vitamin ve takviyelerini unutma',
@@ -109,13 +114,16 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
               Center(
                 child: ElevatedButton.icon(
                   onPressed: () => _showVitaminSelectionDialog(),
-                  icon: const Icon(Icons.medication_liquid),
-                  label: const Text('Vitamin Hatırlatması Ekle'),
+                  icon: const Icon(Icons.medication_liquid, size: 18), // İkon küçültüldü
+                  label: const Text('Vitamin Hatırlatması Ekle', style: TextStyle(fontSize: 13)), // Yazı küçültüldü
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Padding küçültüldü
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _buildNotificationSection(
             title: '💪 Spor Hatırlatmaları',
             subtitle: 'Egzersiz yapmayı unutmamanız için',
@@ -126,11 +134,11 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
                 () => NotificationService().toggleReminderType('workout', true),
                 () => NotificationService().toggleReminderType('workout', false),
               ),
-              const Divider(height: 24),
+              const Divider(height: 16), // 24'ten 16'ya düşürüldü
               _buildSportsReminderSettings(),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _buildNotificationSection(
             title: '🦶 Adım Hatırlatmaları',
             subtitle: 'Günlük adım hedefinizi hatırlatır',
@@ -168,19 +176,35 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(12.0), // 16'dan 12'ye düşürüldü
           itemCount: provider.reminders.length,
           itemBuilder: (context, index) {
             final reminder = provider.reminders[index];
             return Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 8), // 12'den 8'e düşürüldü
               child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Padding küçültüldü
                 leading: CircleAvatar(
+                  radius: 18, // 20'den 18'e küçültüldü
                   backgroundColor: reminder.isActive ? AppColors.primaryGreen.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
-                  child: Icon(reminder.icon, color: reminder.isActive ? AppColors.primaryGreen : Colors.grey),
+                  child: Icon(
+                    reminder.icon, 
+                    color: reminder.isActive ? AppColors.primaryGreen : Colors.grey,
+                    size: 18, // İkon küçültüldü
+                  ),
                 ),
-                title: Text(reminder.title, style: TextStyle(decoration: !reminder.isActive ? TextDecoration.lineThrough : null, fontWeight: FontWeight.w600)),
-                subtitle: Text(DateFormat('dd MMMM yyyy, HH:mm', 'tr_TR').format(reminder.reminderDateTime)),
+                title: Text(
+                  reminder.title, 
+                  style: TextStyle(
+                    decoration: !reminder.isActive ? TextDecoration.lineThrough : null, 
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14, // Yazı küçültüldü
+                  ),
+                ),
+                subtitle: Text(
+                  DateFormat('dd MMMM yyyy, HH:mm', 'tr_TR').format(reminder.reminderDateTime),
+                  style: const TextStyle(fontSize: 12), // Yazı küçültüldü
+                ),
                 trailing: Switch(
                   value: reminder.isActive,
                   onChanged: (value) => provider.toggleReminderStatus(reminder.id, value),
@@ -195,17 +219,32 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
     );
   }
 
-  // WIDGET BUILDER METOTLARI
+  // WIDGET BUILDER METOTLARI - KÜÇÜLTÜLMÜŞ
   Widget _buildNotificationSection({required String title, required String subtitle, required List<Widget> children}) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.all(12), // 16'dan 12'ye düşürüldü
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor, 
+        borderRadius: BorderRadius.circular(12)
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
-          const Divider(height: 24),
+          Text(
+            title, 
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 16, // Yazı küçültüldü
+            ),
+          ),
+          Text(
+            subtitle, 
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[600],
+              fontSize: 13, // Yazı küçültüldü
+            ),
+          ),
+          const Divider(height: 16), // 24'ten 16'ya düşürüldü
           ...children,
         ],
       ),
@@ -218,7 +257,10 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
       builder: (context, snapshot) {
         final isEnabled = snapshot.data ?? false;
         return SwitchListTile(
-          title: Text(title),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 14), // Yazı küçültüldü
+          ),
           value: isEnabled,
           onChanged: (value) {
             setState(() {
@@ -226,6 +268,7 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
             });
           },
           activeColor: AppColors.primaryGreen,
+          contentPadding: EdgeInsets.zero, // Padding kaldırıldı
         );
       },
     );
@@ -234,7 +277,10 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
   Widget _buildSportsReminderSettings() {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text('Hatırlatma Saati'),
+      title: const Text(
+        'Hatırlatma Saati',
+        style: TextStyle(fontSize: 14), // Yazı küçültüldü
+      ),
       trailing: TextButton(
         onPressed: () async {
           final TimeOfDay? picked = await showTimePicker(context: context, initialTime: _sportsReminderTime);
@@ -242,7 +288,6 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
             setState(() {
               _sportsReminderTime = picked;
               
-              // HATA DÜZELTME: 'scheduleDailyNotification' yerine 'scheduleNotification' kullanıldı.
               final now = DateTime.now();
               DateTime scheduledDate = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
               if (scheduledDate.isBefore(now)) {
@@ -250,16 +295,18 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
               }
 
               NotificationService().scheduleNotification(
-                id: 1, // Spor için sabit bir ID
+                id: 1,
                 title: '💪 Egzersiz Zamanı!',
                 body: 'Harekete geçme zamanı, spor seni bekliyor!',
                 scheduledTime: scheduledDate,
-                // Not: Tekrarlı bildirim için NotificationService'inizin bunu desteklemesi gerekir.
               );
             });
           }
         },
-        child: Text(_sportsReminderTime.format(context), style: const TextStyle(fontSize: 16)),
+        child: Text(
+          _sportsReminderTime.format(context), 
+          style: const TextStyle(fontSize: 15), // Yazı küçültüldü
+        ),
       ),
     );
   }
@@ -275,34 +322,60 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('💊 Vitamin Hatırlatması Ekle'),
+          title: const Text('💊 Vitamin Hatırlatması Ekle', style: TextStyle(fontSize: 18)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<VitaminType>(
-                  decoration: const InputDecoration(labelText: 'Vitamin Türü', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Vitamin Türü', 
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                  ),
                   value: selectedVitamin,
-                  items: VitaminType.values.map((vitamin) => DropdownMenuItem(value: vitamin, child: Text(Reminder.getVitaminTypeName(vitamin)))).toList(),
+                  items: VitaminType.values.map((vitamin) => DropdownMenuItem(
+                    value: vitamin, 
+                    child: Text(
+                      Reminder.getVitaminTypeName(vitamin),
+                      style: const TextStyle(fontSize: 14), // Yazı küçültüldü
+                    ),
+                  )).toList(),
                   onChanged: (value) => setDialogState(() => selectedVitamin = value!),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12), // 16'dan 12'ye
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Doz (örn: 1000mg, 2 tablet)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Doz (örn: 1000mg, 2 tablet)', 
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                  ),
+                  style: const TextStyle(fontSize: 14), // Yazı küçültüldü
                   onChanged: (value) => dosage = value,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text('Yemekle birlikte al'),
+                  title: const Text(
+                    'Yemekle birlikte al',
+                    style: TextStyle(fontSize: 14), // Yazı küçültüldü
+                  ),
                   value: withFood,
                   onChanged: (value) => setDialogState(() => withFood = value),
                   activeColor: AppColors.primaryGreen,
+                  contentPadding: EdgeInsets.zero, // Padding kaldırıldı
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 ListTile(
-                  title: const Text('Hatırlatma Saati'),
-                  subtitle: Text(selectedTime.format(context)),
-                  trailing: const Icon(Icons.access_time),
+                  title: const Text(
+                    'Hatırlatma Saati',
+                    style: TextStyle(fontSize: 14), // Yazı küçültüldü
+                  ),
+                  subtitle: Text(
+                    selectedTime.format(context),
+                    style: const TextStyle(fontSize: 13), // Yazı küçültüldü
+                  ),
+                  trailing: const Icon(Icons.access_time, size: 20), // İkon küçültüldü
+                  contentPadding: EdgeInsets.zero, // Padding kaldırıldı
                   onTap: () async {
                     final picked = await showTimePicker(context: context, initialTime: selectedTime);
                     if (picked != null) setDialogState(() => selectedTime = picked);
@@ -312,7 +385,10 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('İptal')),
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('İptal', style: TextStyle(fontSize: 14)),
+            ),
             ElevatedButton(
               onPressed: () {
                 final reminderDateTime = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, selectedTime.hour, selectedTime.minute);
@@ -329,7 +405,10 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
                 Provider.of<ReminderProvider>(context, listen: false).addReminder(newReminder);
                 Navigator.pop(context);
               },
-              child: const Text('Ekle'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Küçültüldü
+              ),
+              child: const Text('Ekle', style: TextStyle(fontSize: 14)),
             ),
           ],
         ),
@@ -350,36 +429,91 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
       builder: (context) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) {
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, top: 20, left: 20, right: 20),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom, 
+              top: 16, // 20'den 16'ya
+              left: 16, // 20'den 16'ya
+              right: 16, // 20'den 16'ya
+            ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(isEditing ? 'Hatırlatıcıyı Düzenle' : 'Yeni Hatırlatıcı', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 20),
-                  TextFormField(controller: titleController, decoration: const InputDecoration(labelText: 'Başlık', border: OutlineInputBorder())),
-                  const SizedBox(height: 16),
+                  Text(
+                    isEditing ? 'Hatırlatıcıyı Düzenle' : 'Yeni Hatırlatıcı', 
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 18), // Yazı küçültüldü
+                  ),
+                  const SizedBox(height: 16), // 20'den 16'ya
+                  TextFormField(
+                    controller: titleController, 
+                    decoration: const InputDecoration(
+                      labelText: 'Başlık', 
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                    ),
+                    style: const TextStyle(fontSize: 14), // Yazı küçültüldü
+                  ),
+                  const SizedBox(height: 12), // 16'dan 12'ye
                   DropdownButtonFormField<ReminderType>(
                     value: selectedType,
-                    decoration: const InputDecoration(labelText: 'Hatırlatıcı Türü', border: OutlineInputBorder()),
-                    items: ReminderType.values.map((type) => DropdownMenuItem(value: type, child: Text(_getReminderTypeName(type)))).toList(),
+                    decoration: const InputDecoration(
+                      labelText: 'Hatırlatıcı Türü', 
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                    ),
+                    items: ReminderType.values.map((type) => DropdownMenuItem(
+                      value: type, 
+                      child: Text(
+                        _getReminderTypeName(type),
+                        style: const TextStyle(fontSize: 14), // Yazı küçültüldü
+                      ),
+                    )).toList(),
                     onChanged: (type) => setDialogState(() => selectedType = type!),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: ElevatedButton.icon(onPressed: () async {
-                        final picked = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime.now(), lastDate: DateTime(2101));
-                        if (picked != null) setDialogState(() => selectedDate = picked);
-                      }, icon: const Icon(Icons.calendar_today), label: Text(DateFormat('dd.MM.yyyy').format(selectedDate)))),
-                      const SizedBox(width: 10),
-                      Expanded(child: ElevatedButton.icon(onPressed: () async {
-                        final picked = await showTimePicker(context: context, initialTime: selectedTime);
-                        if (picked != null) setDialogState(() => selectedTime = picked);
-                      }, icon: const Icon(Icons.access_time), label: Text(selectedTime.format(context)))),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context, 
+                              initialDate: selectedDate, 
+                              firstDate: DateTime.now(), 
+                              lastDate: DateTime(2101),
+                            );
+                            if (picked != null) setDialogState(() => selectedDate = picked);
+                          }, 
+                          icon: const Icon(Icons.calendar_today, size: 18), // İkon küçültüldü
+                          label: Text(
+                            DateFormat('dd.MM.yyyy').format(selectedDate),
+                            style: const TextStyle(fontSize: 13), // Yazı küçültüldü
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8), // 10'dan 8'e
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final picked = await showTimePicker(context: context, initialTime: selectedTime);
+                            if (picked != null) setDialogState(() => selectedTime = picked);
+                          }, 
+                          icon: const Icon(Icons.access_time, size: 18), // İkon küçültüldü
+                          label: Text(
+                            selectedTime.format(context),
+                            style: const TextStyle(fontSize: 13), // Yazı küçültüldü
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültüldü
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16), // 20'den 16'ya
                   ElevatedButton(
                     onPressed: () {
                       _saveReminder(
@@ -390,10 +524,16 @@ class _ReminderScreenState extends State<ReminderScreen> with SingleTickerProvid
                         time: selectedTime,
                       );
                     },
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
-                    child: Text(isEditing ? 'Güncelle' : 'Kaydet'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 44), // 50'den 44'e küçültüldü
+                      padding: const EdgeInsets.symmetric(vertical: 12), // Küçültüldü
+                    ),
+                    child: Text(
+                      isEditing ? 'Güncelle' : 'Kaydet',
+                      style: const TextStyle(fontSize: 15), // Yazı küçültüldü
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16), // 20'den 16'ya
                 ],
               ),
             ),
