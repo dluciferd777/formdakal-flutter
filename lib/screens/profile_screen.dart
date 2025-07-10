@@ -9,6 +9,8 @@ import 'package:formdakal/services/calorie_service.dart';
 import 'package:formdakal/utils/colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../services/cloud_backup_service.dart';
+import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -66,7 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true); // Animasyonu tekrarla
+    )..repeat(reverse: true);
 
     _colorAnimation = ColorTween(
       begin: AppColors.primaryGreen.withOpacity(0.2),
@@ -86,8 +88,63 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _waterController.dispose();
     _metabolicAgeController.dispose();
     _boneController.dispose();
-    _animationController.dispose(); // Animasyon controller'ı dispose et
+    _animationController.dispose();
     super.dispose();
+  }
+
+  void _loadFromBackup() async {
+    final backupService = CloudBackupService();
+    final backups = await backupService.listAvailableBackups();
+    
+    if (backups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Yedek dosyası bulunamadı')),
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Yedek Seç'),
+        content: Container(
+          height: 200,
+          width: 300,
+          child: ListView.builder(
+            itemCount: backups.length,
+            itemBuilder: (context, index) {
+              final backup = backups[index];
+              return ListTile(
+                title: Text(DateFormat('dd/MM/yyyy HH:mm').format(backup.modifiedDate)),
+                subtitle: Text(backup.formattedSize),
+                onTap: () async {
+                  Navigator.pop(context);
+                  
+                  final result = await backupService.restoreFromBackup(backup);
+                  
+                  if (result.success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Yedek yüklendi! Ana ekrana yönlendiriliyorsunuz.')),
+                    );
+                    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Hata: ${result.message}')),
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('İptal'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -96,7 +153,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       final currentUser = userProvider.user;
       if (currentUser == null) return;
 
-      // HATA DÜZELTME: Virgül (,) ile girilen ondalık sayıları noktaya (.) çevir.
       double? parseOptionalDouble(String text) {
         if (text.isEmpty) return null;
         return double.tryParse(text.replaceAll(',', '.'));
@@ -156,7 +212,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 title: const Text('Resmi Sil'),
                 onTap: () async {
                   Navigator.of(context).pop();
-                  // mounted kontrolü eklendi
                   if (mounted) {
                     await Provider.of<UserProvider>(context, listen: false).deleteProfileImage();
                   }
@@ -198,6 +253,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         title: const Text('Profilim'),
         actions: [
           IconButton(
+            icon: Icon(Icons.cloud_download),
+            onPressed: _loadFromBackup,
+            tooltip: 'Yedekten Geri Yükle',
+          ),
+          IconButton(
             icon: Icon(context.watch<ThemeProvider>().isDarkMode ? Icons.light_mode : Icons.dark_mode),
             onPressed: () => context.read<ThemeProvider>().toggleTheme(),
           ),
@@ -213,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             if (userProvider.user == null) {
               return const Center(child: Text('Kullanıcı bilgileri yüklenemedi.'));
             }
-            final user = userProvider.user!; // Kullanıcı objesini al
+            final user = userProvider.user!;
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Form(
@@ -229,7 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             builder: (context, child) {
                               return CircleAvatar(
                                 radius: 60,
-                                backgroundColor: _colorAnimation.value, // Animasyonlu renk
+                                backgroundColor: _colorAnimation.value,
                                 child: CircleAvatar(
                                   radius: 55,
                                   backgroundColor: Colors.transparent,
@@ -290,11 +350,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       items: CalorieService.activityFactors.keys.map((key) => DropdownMenuItem<String>(value: key, child: Text(_getActivityLevelDisplayName(key)))).toList(),
                       onChanged: (value) => setState(() => _selectedActivityLevel = value),
                     ),
-                    // Aktivite seviyesi açıklaması eklendi
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
                       child: Text(
-                        _getActivityLevelDescription(_selectedActivityLevel ?? 'sedentary'), // Varsayılan değer verildi
+                        _getActivityLevelDescription(_selectedActivityLevel ?? 'sedentary'),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                       ),
                     ),
@@ -345,10 +404,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         Expanded(child: _buildTextField(controller: _boneController, label: 'Kemik Oranı (%)', icon: Icons.healing, keyboardType: const TextInputType.numberWithOptions(decimal: true), isOptional: true)),
                       ],
                     ),
-                    const SizedBox(height: 24), // Yeni kart öncesi boşluk
-                    // Vücut Kitle İndeksi (BMI) Kartı
+                    const SizedBox(height: 24),
                     _buildBMICard(context, user),
-                    const SizedBox(height: 24), // Kart sonrası boşluk
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -359,13 +417,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  // Yeni BMI Kartı
   Widget _buildBMICard(BuildContext context, UserModel user) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final bmiCategory = CalorieService.getBMICategory(user.bmi);
     Color bmiColor;
 
-    // BMI kategorisine göre renk belirleme
     switch (bmiCategory) {
       case 'Zayıf':
         bmiColor = Colors.blueAccent;
@@ -423,7 +479,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             Align(
               alignment: Alignment.center,
               child: Text(
-                user.gender == 'male' ? 'Erkek' : 'Kadın', // Cinsiyet bilgisi
+                user.gender == 'male' ? 'Erkek' : 'Kadın',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: isDarkMode ? Colors.white70 : Colors.black54,
                 ),
@@ -434,7 +490,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       ),
     );
   }
-
 
   ImageProvider? _buildProfileImage(String? imagePath) {
     if (imagePath == null) return null;

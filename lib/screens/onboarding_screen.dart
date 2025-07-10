@@ -20,7 +20,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _ageController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
-  String _selectedGender = 'male';
+  String? _selectedGender; // null yapıldı - seçilmemiş durumda
   String _selectedActivityLevel = 'moderately_active';
   String _selectedGoal = 'maintain';
   int _selectedWeeklyWorkoutDays = 3;
@@ -51,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         age: int.parse(_ageController.text.trim()),
         height: double.parse(_heightController.text.trim()),
         weight: double.parse(_weightController.text.trim()),
-        gender: _selectedGender,
+        gender: _selectedGender!, // null check geçtikten sonra kullan
         activityLevel: _selectedActivityLevel,
         goal: _selectedGoal,
         weeklyWorkoutDays: _selectedWeeklyWorkoutDays,
@@ -82,12 +82,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea( // Burası eklendi
+      body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Form(
@@ -132,8 +131,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         value: _selectedGender,
                         label: 'Cinsiyet',
                         icon: Icons.wc,
-                        items: const [ DropdownMenuItem(value: 'male', child: Text('Erkek')), DropdownMenuItem(value: 'female', child: Text('Kadın'))],
-                        onChanged: (value) => setState(() => _selectedGender = value!),
+                        items: const [ 
+                          DropdownMenuItem(value: 'male', child: Text('Erkek')), 
+                          DropdownMenuItem(value: 'female', child: Text('Kadın'))
+                        ],
+                        onChanged: (value) => setState(() => _selectedGender = value),
+                        validator: (value) => value == null ? 'Cinsiyet seçin' : null, // Validator eklendi
                       ),
                     ),
                   ],
@@ -154,7 +157,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   items: CalorieService.activityFactors.keys.map((key) => DropdownMenuItem<String>(value: key, child: Text(_getActivityLevelDisplayName(key)))).toList(),
                   onChanged: (value) => setState(() => _selectedActivityLevel = value!),
                 ),
-                // Aktivite seviyesi açıklaması eklendi
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
                   child: Text(
@@ -177,7 +179,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   icon: Icons.flag,
                   items: const [
                     DropdownMenuItem(value: 'maintain', child: Text('Kilo Korumak')),
-                    DropdownMenuItem(value: 'lose_weight', child: Text('Kilo Vermek')), // 'Dropdown' düzeltildi
+                    DropdownMenuItem(value: 'lose_weight', child: Text('Kilo Vermek')),
                     DropdownMenuItem(value: 'gain_muscle', child: Text('Kas Yapmak')),
                     DropdownMenuItem(value: 'lose_weight_gain_muscle', child: Text('Kilo Ver & Kas Yap')),
                   ],
@@ -218,13 +220,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildDropdownField<T>({ required T value, required String label, required IconData icon, required List<DropdownMenuItem<T>> items, required void Function(T?) onChanged}) {
+  Widget _buildDropdownField<T>({ 
+    required T? value, // nullable yapıldı
+    required String label, 
+    required IconData icon, 
+    required List<DropdownMenuItem<T>> items, 
+    required void Function(T?) onChanged,
+    String? Function(T?)? validator, // validator eklendi
+  }) {
     return DropdownButtonFormField<T>(
       value: value,
       decoration: InputDecoration(
-        labelText: label, prefixIcon: Icon(icon), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+        labelText: label, 
+        prefixIcon: Icon(icon), 
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
       items: items,
       onChanged: onChanged,
+      validator: validator, // validator kullanıldı
     );
   }
 

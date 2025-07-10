@@ -1,4 +1,4 @@
-// lib/widgets/custom_drawer.dart
+// lib/widgets/custom_drawer.dart - PROFİL BİLGİLERİ ALTTA
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -59,9 +59,8 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return SizedBox(
-      width: 280, // Drawer genişliğini artırdık
+      width: 280, // Drawer genişliği artırıldı
       child: Drawer(
-        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         child: Column(
           children: [
             Consumer2<UserProvider, ExerciseProvider>(
@@ -74,109 +73,104 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
                 final double progress = (dailyBurnedCalories / calorieGoal).clamp(0.0, 1.0);
 
                 return Container(
-                  height: 160, // Header yüksekliğini artırdık
-                  padding: const EdgeInsets.fromLTRB(16, 28, 12, 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primaryGreen,
-                        AppColors.primaryGreen.withOpacity(0.8),
-                      ],
-                    ),
+                  height: 180, // Header yüksekliği artırıldı
+                  padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryGreen,
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Profil resmi - merkezi ve büyük
+                      AnimatedBuilder(
+                        animation: _colorAnimation,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: 80, // Profil resmi boyutu büyütüldü
+                            height: 80,
+                            child: CustomPaint(
+                              painter: ActivityRingPainter(
+                                outerProgress: progress,
+                                middleProgress: progress,
+                                innerProgress: progress,
+                                outerColor: Colors.white,
+                                middleColor: Colors.white.withOpacity(0.7),
+                                innerColor: Colors.white.withOpacity(0.4),
+                                showGlow: true,
+                              ),
+                              child: Center(
+                                child: CircleAvatar(
+                                  radius: 35, // Radius büyütüldü
+                                  backgroundColor: _colorAnimation.value,
+                                  backgroundImage: imageProvider,
+                                  child: imageProvider == null 
+                                      ? const Icon(Icons.person, size: 35, color: AppColors.primaryGreen)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      
+                      const SizedBox(height: 12), // Profil resmi ile isim arası boşluk
+                      
+                      // İsim ve düzenle butonu
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          AnimatedBuilder(
-                            animation: _colorAnimation,
-                            builder: (context, child) {
-                              return SizedBox(
-                                width: 70, // Profil resmi boyutunu artırdık
-                                height: 70,
-                                child: CustomPaint(
-                                  painter: ActivityRingPainter(
-                                    outerProgress: progress,
-                                    middleProgress: progress,
-                                    innerProgress: progress,
-                                    outerColor: Colors.white,
-                                    middleColor: Colors.white.withOpacity(0.7),
-                                    innerColor: Colors.white.withOpacity(0.4),
-                                    showGlow: true,
-                                  ),
-                                  child: Center(
-                                    child: CircleAvatar(
-                                      radius: 30, // Radius artırıldı
-                                      backgroundColor: _colorAnimation.value,
-                                      backgroundImage: imageProvider,
-                                      child: imageProvider == null 
-                                          ? const Icon(Icons.person, size: 30, color: AppColors.primaryGreen)
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                          Flexible(
+                            child: Text(
+                              user?.name ?? 'Kullanıcı Adı',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18, // Font boyutu büyütüldü
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        user?.name ?? 'Kullanıcı Adı',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18, // Font boyutu artırıldı
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        Navigator.pushNamed(context, '/profile');
-                                      },
-                                      tooltip: 'Profili Düzenle',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 32,
-                                        minHeight: 32,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    user != null
-                                        ? '${user.age} yaş • ${user.height.toInt()} cm • ${user.weight.toInt()} kg'
-                                        : 'Profil bilgileri eksik',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12, // Font boyutu artırıldı
-                                    ),
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.white, size: 18),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                            tooltip: 'Profili Düzenle',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 24,
+                              minHeight: 24,
                             ),
                           ),
                         ],
+                      ),
+                      
+                      const SizedBox(height: 8), // İsim ile bilgiler arası boşluk
+                      
+                      // Profil bilgileri - ismin altında
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          user != null
+                              ? '${user.age} yaş • ${user.height.toInt()} cm • ${user.weight.toInt()} kg'
+                              : 'Profil bilgileri eksik',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                   ),
@@ -189,16 +183,15 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
                 children: [
                   const SizedBox(height: 8),
                   _buildMenuItem(context, icon: Icons.home_outlined, title: 'Ana Ekran', route: '/home', isHome: true),
-                  _buildMenuItem(context, icon: Icons.emoji_events_outlined, title: 'Başarımlarım', route: '/achievements'),
-                  _buildMenuItem(context, icon: Icons.assignment_outlined, title: 'Antrenman Planları', route: '/workout_plans'),
-                  const Divider(height: 12, thickness: 0.5, indent: 16, endIndent: 16),
-                  _buildMenuItem(context, icon: Icons.bar_chart_outlined, title: 'Raporlar ve Grafikler', route: '/reports'),
+                  _buildMenuItem(context, icon: Icons.person_outline, title: 'Profilim', route: '/profile'),
                   _buildMenuItem(context, icon: Icons.monitor_heart_outlined, title: 'Kalori & Makro Takibi', route: '/calorie_tracking'),
+                  _buildMenuItem(context, icon: Icons.emoji_events_outlined, title: 'Başarımlarım', route: '/achievements'),
                   const Divider(height: 12, thickness: 0.5, indent: 16, endIndent: 16),
+                  _buildMenuItem(context, icon: Icons.assignment_outlined, title: 'Antrenman Planları', route: '/workout_plans'),
                   _buildMenuItem(context, icon: Icons.fitness_center_outlined, title: 'Fitness Egzersizleri', route: '/fitness'),
                   _buildMenuItem(context, icon: Icons.restaurant_menu_outlined, title: 'Yemek Kalorileri', route: '/food_calories'),
                   const Divider(height: 12, thickness: 0.5, indent: 16, endIndent: 16),
-                  _buildMenuItem(context, icon: Icons.person_outline, title: 'Profilim', route: '/profile'),
+                  _buildMenuItem(context, icon: Icons.bar_chart_outlined, title: 'Raporlar ve Grafikler', route: '/reports'),
                   _buildMenuItem(context, icon: Icons.straighten_outlined, title: 'Vücut Ölçülerim', route: '/measurements'),
                   _buildMenuItem(context, icon: Icons.photo_camera_outlined, title: 'İlerleme Fotoğrafları', route: '/progress_photos'),
                   _buildMenuItem(context, icon: Icons.notifications_outlined, title: 'Hatırlatıcılar', route: '/reminders'),
@@ -211,8 +204,8 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
               child: Text(
                 'Powered by Lucci FormdaKal 1.0.0',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade500,
-                  fontSize: 11, // Font boyutu artırıldı
+                  color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -223,57 +216,24 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
   }
 
   Widget _buildMenuItem(BuildContext context, {required IconData icon, required String title, required String route, bool isHome = false}) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-    
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.transparent,
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      minLeadingWidth: 28,
+      leading: Icon(icon, color: AppColors.primaryGreen, size: 20),
+      title: Text(
+        title, 
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontSize: 14,
+        ),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        minLeadingWidth: 32,
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primaryGreen.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon, 
-            color: AppColors.primaryGreen, 
-            size: 22, // İkon boyutu artırıldı
-          ),
-        ),
-        title: Text(
-          title, 
-          style: TextStyle(
-            fontSize: 16, // Font boyutu artırıldı
-            fontWeight: FontWeight.w500,
-            color: isDarkMode ? Colors.white : Colors.black87, // Beyaz temada görünür renge çevrildi
-          ),
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400,
-        ),
-        onTap: () {
-          Navigator.pop(context);
-          if (isHome) {
-            Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
-          } else {
-            Navigator.pushNamed(context, route);
-          }
-        },
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        hoverColor: AppColors.primaryGreen.withOpacity(0.05),
-        splashColor: AppColors.primaryGreen.withOpacity(0.1),
-      ),
+      onTap: () {
+        Navigator.pop(context);
+        if (isHome) {
+          Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+        } else {
+          Navigator.pushNamed(context, route);
+        }
+      },
     );
   }
 }

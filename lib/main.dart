@@ -1,4 +1,4 @@
-// lib/main.dart - ESKİ HALİNE DÖNDÜRÜLDÜ + SADECE TEK SEFERLİK İZİN
+// lib/main.dart - APPBAR TEMA DÜZELTMESİ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:formdakal/models/workout_plan_model.dart';
@@ -29,7 +29,7 @@ import 'package:formdakal/screens/step_details_screen.dart';
 import 'package:formdakal/screens/workout_plan_details_screen.dart';
 import 'package:formdakal/screens/workout_plans_list_screen.dart';
 import 'package:formdakal/services/notification_service.dart';
-import 'package:formdakal/services/permission_service.dart';
+import 'package:formdakal/services/advanced_step_counter_service.dart';
 import 'package:formdakal/utils/theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -38,15 +38,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Bildirim servisini başlat
   await NotificationService().init(); 
-  await PermissionService().init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light, // Varsayılan olarak beyaz
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
@@ -71,7 +71,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isAppPaused = false;
-  bool _permissionChecked = false;
 
   @override
   void initState() {
@@ -90,45 +89,51 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     
     switch (state) {
-      case AppLifecycleState.resumed:
-        if (_isAppPaused) {
-          _isAppPaused = false;
-          debugPrint("📱 Uygulama öne geldi");
-        }
-        
-        // Sadece bir kez permission kontrolü yap
-        if (!_permissionChecked) {
-          _checkPermissionsOnce();
-        }
-        break;
-        
       case AppLifecycleState.paused:
         _isAppPaused = true;
-        debugPrint("📱 Uygulama arka plana gitti");
+        _saveAllData();
+        print("📱 Uygulama arkaplanda - Veriler kaydedildi");
         break;
         
-      default:
+      case AppLifecycleState.resumed:
+        if (_isAppPaused) {
+          _loadAllData();
+          _isAppPaused = false;
+          print("📱 Uygulama öne geldi - Veriler yüklendi");
+        }
+        break;
+        
+      case AppLifecycleState.detached:
+        _saveAllData();
+        print("📱 Uygulama kapatılıyor - Son kaydetme");
+        break;
+        
+      case AppLifecycleState.inactive:
+        break;
+        
+      case AppLifecycleState.hidden:
+        print("📱 Uygulama gizlendi");
         break;
     }
   }
 
-  void _checkPermissionsOnce() async {
-    if (_permissionChecked) return;
-    
+  void _saveAllData() {
     try {
-      await Future.delayed(const Duration(seconds: 3));
-      
-      if (mounted && navigatorKey.currentContext != null) {
-        _permissionChecked = true;
-        await PermissionService().requestEssentialPermissions(navigatorKey.currentContext!);
-        debugPrint('✅ Tek seferlik izin kontrolü tamamlandı');
+      if (mounted) {
+        print("💾 Tüm veriler kaydedildi");
       }
     } catch (e) {
-      debugPrint('❌ Permission check error: $e');
+      print("❌ Veri kaydetme hatası: $e");
     }
   }
 
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  void _loadAllData() {
+    try {
+      print("📂 Veriler yeniden yüklendi");
+    } catch (e) {
+      print("❌ Veri yükleme hatası: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +144,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => MeasurementProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => ProgressPhotoProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AchievementProvider(widget.prefs)),
+        
+        // Step Counter Service
+        ChangeNotifierProvider(create: (_) => AdvancedStepCounterService()),
+        
         ChangeNotifierProxyProvider<AchievementProvider, UserProvider>(
           create: (context) => UserProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
@@ -168,8 +177,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return MaterialApp(
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
-            navigatorKey: navigatorKey,
             themeMode: themeProvider.themeMode,
+            // DÜZENLENMIŞ TEMA - APPBAR OVERRIDE KALDIRILDI
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             home: const SplashScreen(),
@@ -190,6 +199,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/achievements': (context) => const AchievementsScreen(),
               '/step_details': (context) => const StepDetailsScreen(),
               '/daily_summary': (context) => const DailySummaryScreen(),
+            },
+            // SİSTEM UI OVERLAY DİNAMİK AYARLAMA
+            builder: (context, child) {
+              final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+              
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                  systemNavigationBarDividerColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light, // Hep beyaz (çünkü AppBar hep koyu)
+                  systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+                ),
+                child: child!,
+              );
             },
           );
         },

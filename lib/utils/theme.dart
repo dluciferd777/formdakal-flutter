@@ -1,27 +1,10 @@
-// lib/utils/theme.dart - DÜZELTİLMİŞ
+// lib/utils/theme.dart - DÜZENLENMIŞ APPBAR TEMALARI
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'colors.dart';
 
 class AppTheme {
   static final _baseTextTheme = ThemeData.dark().textTheme;
-
-  // Card decoration metodu eklendi
-  static BoxDecoration cardDecoration(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return BoxDecoration(
-      color: isDarkMode ? AppColors.darkCard : AppColors.lightCard,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: isDarkMode 
-              ? Colors.black.withOpacity(0.3) 
-              : Colors.grey.withOpacity(0.2),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    );
-  }
 
   // --- AÇIK TEMA ---
   static ThemeData lightTheme = ThemeData(
@@ -30,13 +13,29 @@ class AppTheme {
     primaryColor: AppColors.primaryGreen,
     scaffoldBackgroundColor: AppColors.lightSurface,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.primaryGreen, // AppBar her zaman yeşil
-      foregroundColor: Colors.white, // AppBar üzerindeki yazı ve ikonlar beyaz
+      // BEYAZ TEMADA APPBAR YEŞİL
+      backgroundColor: AppColors.primaryGreen,
+      foregroundColor: Colors.white, // İkonlar ve yazılar beyaz
       elevation: 2,
       centerTitle: true,
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // Status bar ikonları beyaz
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       titleTextStyle: _baseTextTheme.headlineSmall?.copyWith(
-        color: Colors.white, // Başlık metni beyaz
+        color: Colors.white, // Başlık beyaz
         fontWeight: FontWeight.bold,
+        fontSize: 20,
+      ),
+      iconTheme: const IconThemeData(
+        color: Colors.white, // AppBar ikonları beyaz
+        size: 24,
+      ),
+      actionsIconTheme: const IconThemeData(
+        color: Colors.white, // Action ikonları beyaz
+        size: 24,
       ),
     ),
     cardTheme: CardThemeData(
@@ -84,13 +83,29 @@ class AppTheme {
     primaryColor: AppColors.primaryGreen,
     scaffoldBackgroundColor: AppColors.darkBackground,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.darkSurface, // Koyu temada koyu arka plan
-      foregroundColor: Colors.white, // Yazı ve ikonlar beyaz
-      elevation: 2,
+      // KOYU TEMADA APPBAR SİYAH/KOYU GRİ
+      backgroundColor: AppColors.darkSurface, // Siyah/koyu gri
+      foregroundColor: Colors.white, // İkonlar ve yazılar beyaz
+      elevation: 0,
       centerTitle: true,
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // Status bar ikonları beyaz
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
       titleTextStyle: _baseTextTheme.headlineSmall?.copyWith(
-        color: Colors.white, // Başlık metni beyaz
+        color: Colors.white, // Başlık beyaz
         fontWeight: FontWeight.bold,
+        fontSize: 20,
+      ),
+      iconTheme: const IconThemeData(
+        color: Colors.white, // AppBar ikonları beyaz
+        size: 24,
+      ),
+      actionsIconTheme: const IconThemeData(
+        color: Colors.white, // Action ikonları beyaz
+        size: 24,
       ),
     ),
     cardTheme: CardThemeData(
@@ -130,4 +145,34 @@ class AppTheme {
       foregroundColor: Colors.white,
     ),
   );
+
+  // ÖZEL APPBAR WIDGET - TUTARLI KULLANIM İÇİN
+  static AppBar buildAppBar({
+    required BuildContext context,
+    required String title,
+    List<Widget>? actions,
+    Widget? leading,
+    bool automaticallyImplyLeading = true,
+    PreferredSizeWidget? bottom,
+  }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    return AppBar(
+      title: Text(title),
+      backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen,
+      foregroundColor: Colors.white,
+      elevation: isDarkMode ? 0 : 2,
+      centerTitle: true,
+      actions: actions,
+      leading: leading,
+      automaticallyImplyLeading: automaticallyImplyLeading,
+      bottom: bottom,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      ),
+    );
+  }
 }

@@ -1,12 +1,12 @@
-// lib/screens/step_details_screen.dart - OVERFLOW HATASI DÜZELTİLDİ
+// lib/screens/step_details_screen.dart - GPS EKLİ
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/exercise_provider.dart';
-import '../providers/user_provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
+import 'dart:math';
+import '../services/advanced_step_counter_service.dart';
 import '../utils/colors.dart';
-import '../widgets/activity_ring_painter.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 class StepDetailsScreen extends StatefulWidget {
   const StepDetailsScreen({super.key});
@@ -15,488 +15,545 @@ class StepDetailsScreen extends StatefulWidget {
   State<StepDetailsScreen> createState() => _StepDetailsScreenState();
 }
 
-class _StepDetailsScreenState extends State<StepDetailsScreen> 
-    with TickerProviderStateMixin {
-  
+class _StepDetailsScreenState extends State<StepDetailsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late AnimationController _ringAnimationController;
-  late Animation<double> _ringAnimation;
+  
+  // GPS Tracking
+  StreamSubscription<Position>? _positionStream;
+  List<Position> _routePoints = [];
+  bool _isTracking = false;
+  double _totalDistance = 0.0;
+  DateTime? _trackingStartTime;
+  Duration _trackingDuration = Duration.zero;
+  Timer? _durationTimer;
+  
+  // Tracking stats
+  double _currentSpeed = 0.0; // m/s
+  double _averageSpeed = 0.0;
+  double _maxSpeed = 0.0;
+  double _calories = 0.0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
-    // Ring animasyonu
-    _ringAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _ringAnimation = CurvedAnimation(
-      parent: _ringAnimationController,
-      curve: Curves.elasticOut,
-    );
-    
-    // Animasyonu başlat
-    _ringAnimationController.forward();
+    _requestLocationPermission();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _ringAnimationController.dispose();
+    _stopTracking();
+    _durationTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Konum izni gerekli')),
+        );
+        return;
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Konum izni ayarlardan açılmalı')),
+      );
+      return;
+    }
+  }
+
+  void _startTracking() async {
+    if (_isTracking) return;
+    
+    try {
+      setState(() {
+        _isTracking = true;
+        _trackingStartTime = DateTime.now();
+        _routePoints.clear();
+        _totalDistance = 0.0;
+        _currentSpeed = 0.0;
+        _averageSpeed = 0.0;
+        _maxSpeed = 0.0;
+        _calories = 0.0;
+        _trackingDuration = Duration.zero;
+      });
+
+      const LocationSettings locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // 5 metre değişiklik
+      );
+
+      _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+        (Position position) {
+          _updateLocation(position);
+        },
+        onError: (error) {
+          print('GPS Hatası: $error');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('GPS hatası: $error')),
+          );
+        },
+      );
+
+      // Süre sayacını başlat
+      _durationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        if (_trackingStartTime != null) {
+          setState(() {
+            _trackingDuration = DateTime.now().difference(_trackingStartTime!);
+          });
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🏃‍♂️ GPS takip başladı'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isTracking = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Takip başlatılamadı: $e')),
+      );
+    }
+  }
+
+  void _stopTracking() {
+    if (!_isTracking) return;
+    
+    setState(() => _isTracking = false);
+    _positionStream?.cancel();
+    _durationTimer?.cancel();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('⏹️ GPS takip durduruldu'),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+
+  void _updateLocation(Position position) {
+    if (!_isTracking) return;
+    
+    setState(() {
+      // Mesafe hesaplama
+      if (_routePoints.isNotEmpty) {
+        final lastPoint = _routePoints.last;
+        final distance = Geolocator.distanceBetween(
+          lastPoint.latitude,
+          lastPoint.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        _totalDistance += distance;
+      }
+      
+      _routePoints.add(position);
+      _currentSpeed = position.speed; // m/s
+      
+      // Maksimum hız
+      if (_currentSpeed > _maxSpeed) {
+        _maxSpeed = _currentSpeed;
+      }
+      
+      // Ortalama hız
+      if (_trackingDuration.inSeconds > 0) {
+        _averageSpeed = _totalDistance / _trackingDuration.inSeconds;
+      }
+      
+      // Kalori hesaplama (basit formül)
+      _calories = _calculateCalories();
+    });
+  }
+
+  double _calculateCalories() {
+    // Kalori = MET * Kilo * Saat
+    // Yürüyüş: 3.5 MET, Koşu: 8-12 MET
+    final speedKmh = _averageSpeed * 3.6; // m/s to km/h
+    double met = 3.5; // Varsayılan yürüyüş
+    
+    if (speedKmh > 8) {
+      met = 8.0; // Koşu
+    } else if (speedKmh > 6) {
+      met = 5.0; // Hızlı yürüyüş
+    }
+    
+    final hours = _trackingDuration.inSeconds / 3600.0;
+    final weight = 70.0; // Varsayılan kilo - user provider'dan alınabilir
+    
+    return met * weight * hours;
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF000000) : const Color(0xFFF2F2F7),
-      body: Consumer2<ExerciseProvider, UserProvider>(
-        builder: (context, exerciseProvider, userProvider, child) {
-          final steps = exerciseProvider.dailySteps;
-          final activeMinutes = exerciseProvider.dailyActiveMinutes;
-          final burnedCalories = exerciseProvider.getDailyBurnedCalories(DateTime.now());
-          final user = userProvider.user;
-          
-          // Dinamik hedefler (kullanıcı profiline göre)
-          final stepGoal = user?.dailyStepGoal ?? 10000;
-          final minuteGoal = user?.dailyMinuteGoal ?? 60;
-          final calorieGoal = (user?.dailyCalorieNeeds ?? 2000) * 0.2; // %20'si egzersizden
-          
-          final distanceKm = (steps * 0.75) / 1000;
-          
-          final stepProgress = (steps / stepGoal).clamp(0.0, 1.0);
-          final minuteProgress = (activeMinutes / minuteGoal).clamp(0.0, 1.0);
-          final calorieProgress = (burnedCalories / calorieGoal).clamp(0.0, 1.0);
+      appBar: AppBar(
+        title: Text('👣 Adım Detayları'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(icon: Icon(Icons.analytics), text: 'İstatistik'),
+            Tab(icon: Icon(Icons.map), text: 'GPS Takip'),
+            Tab(icon: Icon(Icons.history), text: 'Geçmiş'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildStatsTab(),
+          _buildGPSTab(),
+          _buildHistoryTab(),
+        ],
+      ),
+    );
+  }
 
-          return NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverAppBar(
-                  expandedHeight: 60, // Yükseklik azaltıldı
-                  floating: false,
-                  pinned: true,
-                  elevation: 0,
-                  backgroundColor: isDarkMode ? Colors.black : const Color(0xFFF2F2F7),
-                  foregroundColor: isDarkMode ? Colors.white : Colors.black,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_rounded),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context);
-                    },
-                  ),
-                  flexibleSpace: FlexibleSpaceBar(
-                    title: Text(
-                      'Adım Sayar', // Başlık değiştirildi
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 24, // Font boyutu küçültüldü
-                        color: isDarkMode ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    titlePadding: const EdgeInsets.only(left: 20, bottom: 12), // Padding azaltıldı
-                  ),
-                ),
-              ];
-            },
-            body: Column(
-              children: [
-                // Ana Activity Ring - Boyut ve padding azaltıldı
-                Container(
-                  margin: const EdgeInsets.all(16), // Margin azaltıldı
-                  padding: const EdgeInsets.all(20), // Padding azaltıldı
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: isDarkMode ? null : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
+  Widget _buildStatsTab() {
+    return Consumer<AdvancedStepCounterService>(
+      builder: (context, stepService, child) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Bugünkü adımlar
+              _buildStatCard(
+                title: 'Bugünkü Adımlar',
+                value: '${stepService.todaySteps}',
+                subtitle: 'Hedef: 10,000',
+                icon: Icons.directions_walk,
+                color: AppColors.primaryGreen,
+                progress: (stepService.todaySteps / 10000).clamp(0.0, 1.0),
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Tahmini mesafe
+              _buildStatCard(
+                title: 'Tahmini Mesafe',
+                value: '${(stepService.todaySteps * 0.0008).toStringAsFixed(2)} km',
+                subtitle: 'Ortalama adım boyu: 80cm',
+                icon: Icons.straighten,
+                color: Colors.blue,
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Tahmini kalori
+              _buildStatCard(
+                title: 'Yakılan Kalori',
+                value: '${(stepService.todaySteps * 0.04).toInt()} kal',
+                subtitle: 'Adım başına ~0.04 kalori',
+                icon: Icons.local_fire_department,
+                color: Colors.orange,
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Aktif dakika
+              _buildStatCard(
+                title: 'Aktif Dakika',
+                value: '${(stepService.todaySteps / 100).toInt()} dk',
+                subtitle: '100 adım = ~1 dakika',
+                icon: Icons.timer,
+                color: Colors.purple,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGPSTab() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // GPS Tracking Control
+          Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Ring Chart - Boyut azaltıldı
-                      AnimatedBuilder(
-                        animation: _ringAnimation,
-                        builder: (context, child) {
-                          return SizedBox(
-                            width: 240, // 280'den 240'a azaltıldı
-                            height: 240, // 280'den 240'a azaltıldı
-                            child: CustomPaint(
-                              painter: ActivityRingPainter(
-                                outerProgress: stepProgress * _ringAnimation.value,
-                                middleProgress: minuteProgress * _ringAnimation.value,
-                                innerProgress: calorieProgress * _ringAnimation.value,
-                                outerColor: AppColors.stepColor,
-                                middleColor: AppColors.timeColor,
-                                innerColor: AppColors.calorieColor,
-                                showGlow: true,
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.directions_walk_rounded,
-                                      color: AppColors.stepColor,
-                                      size: 40, // 48'den 40'a azaltıldı
-                                    ),
-                                    const SizedBox(height: 6), // 8'den 6'ya azaltıldı
-                                    Text(
-                                      steps.toString(),
-                                      style: TextStyle(
-                                        fontSize: 36, // 44'ten 36'ya azaltıldı
-                                        fontWeight: FontWeight.w700,
-                                        color: isDarkMode ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                    Text(
-                                      'ADIM',
-                                      style: TextStyle(
-                                        fontSize: 14, // 16'dan 14'e azaltıldı
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey.shade500,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6), // 8'den 6'ya azaltıldı
-                                    Text(
-                                      '${stepGoal.toString()} hedef',
-                                      style: TextStyle(
-                                        fontSize: 12, // 14'ten 12'ye azaltıldı
-                                        color: Colors.grey.shade400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                      Icon(
+                        _isTracking ? Icons.gps_fixed : Icons.gps_not_fixed,
+                        color: _isTracking ? Colors.green : Colors.grey,
+                        size: 32,
                       ),
-                      
-                      const SizedBox(height: 24), // 32'den 24'e azaltıldı
-                      
-                      // Stats Row - Boyut optimizasyonu
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildModernStat(
-                            context,
-                            'Etkin Dakika',
-                            activeMinutes.toString(),
-                            AppColors.timeColor,
-                            '${minuteGoal.toInt()}dk',
-                            minuteProgress,
-                            isDarkMode,
-                          ),
-                          Container(
-                            width: 1,
-                            height: 50, // 60'tan 50'ye azaltıldı
-                            color: Colors.grey.shade300,
-                          ),
-                          _buildModernStat(
-                            context,
-                            'Kalori',
-                            burnedCalories.toInt().toString(),
-                            AppColors.calorieColor,
-                            '${calorieGoal.toInt()}kal',
-                            calorieProgress,
-                            isDarkMode,
-                          ),
-                        ],
+                      SizedBox(width: 12),
+                      Text(
+                        _isTracking ? 'GPS Takip Aktif' : 'GPS Takip Durduruldu',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _isTracking ? Colors.green : Colors.grey,
+                        ),
                       ),
                     ],
                   ),
-                ),
-                
-                // Tab Bar - Margin azaltıldı
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16), // 20'den 16'ya azaltıldı
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: isDarkMode ? null : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 20,
-                        offset: const Offset(0, 5),
+                  
+                  SizedBox(height: 16),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isTracking ? null : _startTracking,
+                          icon: Icon(Icons.play_arrow),
+                          label: Text('Başla'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isTracking ? _stopTracking : null,
+                          icon: Icon(Icons.stop),
+                          label: Text('Durdur'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicator: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: AppColors.primaryGreen,
-                    ),
-                    labelColor: Colors.white,
-                    unselectedLabelColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    dividerColor: Colors.transparent,
-                    onTap: (index) => HapticFeedback.selectionClick(),
-                    tabs: const [
-                      Tab(text: 'Bugün'),
-                      Tab(text: '7 Gün'),
-                      Tab(text: '30 Gün'),
-                    ],
-                  ),
-                ),
-                
-                // Tab Content - Expanded ile overflow önlendi
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 16),
+          
+          // GPS Stats
+          if (_isTracking || _routePoints.isNotEmpty) ...[
+            Row(
+              children: [
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 16), // Alt padding eklendi
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Bugün
-                        _buildTodayStats(context, distanceKm, isDarkMode),
-                        // 7 Gün
-                        _buildWeeklyChart(context, exerciseProvider, isDarkMode),
-                        // 30 Gün
-                        _buildMonthlyChart(context, exerciseProvider, isDarkMode),
-                      ],
-                    ),
+                  child: _buildGPSStatCard(
+                    'Mesafe',
+                    '${(_totalDistance / 1000).toStringAsFixed(2)} km',
+                    Icons.straighten,
+                    Colors.blue,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildGPSStatCard(
+                    'Süre',
+                    _formatDuration(_trackingDuration),
+                    Icons.timer,
+                    Colors.orange,
                   ),
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildModernStat(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-    String target,
-    double progress,
-    bool isDarkMode,
-  ) {
-    return Column(
-      children: [
-        // Progress Circle - Boyut azaltıldı
-        SizedBox(
-          width: 40, // 50'den 40'a azaltıldı
-          height: 40, // 50'den 40'a azaltıldı
-          child: CircularProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            strokeWidth: 3, // 4'ten 3'e azaltıldı
-          ),
-        ),
-        const SizedBox(height: 8), // 12'den 8'e azaltıldı
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20, // 24'ten 20'ye azaltıldı
-            fontWeight: FontWeight.w700,
-            color: isDarkMode ? Colors.white : Colors.black,
-          ),
-        ),
-        const SizedBox(height: 2), // 4'ten 2'ye azaltıldı
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12, // 14'ten 12'ye azaltıldı
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade500,
-          ),
-        ),
-        Text(
-          target,
-          style: TextStyle(
-            fontSize: 10, // 12'den 10'a azaltıldı
-            color: Colors.grey.shade400,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTodayStats(BuildContext context, double distanceKm, bool isDarkMode) {
-    return SingleChildScrollView( // ScrollView eklendi
-      child: Container(
-        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
-        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isDarkMode ? null : [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
+            
+            SizedBox(height: 8),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildGPSStatCard(
+                    'Hız',
+                    '${(_currentSpeed * 3.6).toStringAsFixed(1)} km/h',
+                    Icons.speed,
+                    Colors.green,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildGPSStatCard(
+                    'Ort. Hız',
+                    '${(_averageSpeed * 3.6).toStringAsFixed(1)} km/h',
+                    Icons.trending_up,
+                    Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 8),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildGPSStatCard(
+                    'Max Hız',
+                    '${(_maxSpeed * 3.6).toStringAsFixed(1)} km/h',
+                    Icons.flash_on,
+                    Colors.red,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildGPSStatCard(
+                    'Kalori',
+                    '${_calories.toInt()} kal',
+                    Icons.local_fire_department,
+                    Colors.deepOrange,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
-          children: [
-            Text(
-              'Bugünkü Detaylar',
-              style: TextStyle(
-                fontSize: 18, // 20'den 18'e azaltıldı
-                fontWeight: FontWeight.w600,
-                color: isDarkMode ? Colors.white : Colors.black,
+          
+          SizedBox(height: 16),
+          
+          // Route Info
+          if (_routePoints.isNotEmpty) ...[
+            Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🗺️ Rota Bilgileri',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 12),
+                    Text('📍 Toplam Nokta: ${_routePoints.length}'),
+                    if (_routePoints.length >= 2) ...[
+                      Text('🎯 Başlangıç: ${_routePoints.first.latitude.toStringAsFixed(6)}, ${_routePoints.first.longitude.toStringAsFixed(6)}'),
+                      Text('🏁 Son Nokta: ${_routePoints.last.latitude.toStringAsFixed(6)}, ${_routePoints.last.longitude.toStringAsFixed(6)}'),
+                    ],
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
-            _buildStatRow(context, Icons.map_rounded, 'Mesafe', '${distanceKm.toStringAsFixed(2)} km', isDarkMode),
-            _buildStatRow(context, Icons.speed_rounded, 'Ortalama Hız', '${(distanceKm * 60 / 24).toStringAsFixed(1)} km/h', isDarkMode),
-            _buildStatRow(context, Icons.trending_up_rounded, 'En Aktif Saat', '14:00 - 15:00', isDarkMode),
-            _buildStatRow(context, Icons.timer_rounded, 'Toplam Süre', '${(DateTime.now().hour - 6)} saat aktif', isDarkMode),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatRow(BuildContext context, IconData icon, String label, String value, bool isDarkMode) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12), // 16'dan 12'ye azaltıldı
-      child: Row(
+  Widget _buildHistoryTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6), // 8'den 6'ya azaltıldı
-            decoration: BoxDecoration(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: AppColors.primaryGreen, size: 18), // 20'den 18'e azaltıldı
-          ),
-          const SizedBox(width: 12), // 16'dan 12'ye azaltıldı
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14, // 16'dan 14'e azaltıldı
-                color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
-              ),
-            ),
-          ),
+          Icon(Icons.history, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 14, // 16'dan 14'e azaltıldı
-              fontWeight: FontWeight.w600,
-              color: isDarkMode ? Colors.white : Colors.black,
-            ),
+            'Geçmiş Aktiviteler',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Yakında eklenecek...',
+            style: TextStyle(color: Colors.grey),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklyChart(BuildContext context, ExerciseProvider exerciseProvider, bool isDarkMode) {
-    // 7 günlük veri simülasyonu
-    final weeklyData = List.generate(7, (index) {
-      return FlSpot(index.toDouble(), (exerciseProvider.dailySteps * (0.7 + (index * 0.05))).toDouble());
-    });
-
-    return SingleChildScrollView( // ScrollView eklendi
-      child: Container(
-        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
-        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isDarkMode ? null : [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    double? progress,
+  }) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
           children: [
-            Text(
-              'Son 7 Gün Trendi',
-              style: TextStyle(
-                fontSize: 18, // 20'den 18'e azaltıldı
-                fontWeight: FontWeight.w600,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
-            SizedBox(
-              height: 200, // Sabit yükseklik eklendi
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          const days = ['Pz', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pa'];
-                          return Text(
-                            days[value.toInt()],
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: weeklyData,
-                      isCurved: true,
-                      gradient: LinearGradient(
-                        colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.3)],
-                      ),
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: AppColors.primaryGreen,
-                            strokeWidth: 2,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primaryGreen.withOpacity(0.3),
-                            AppColors.primaryGreen.withOpacity(0.0),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: color.withOpacity(0.2),
+                  child: Icon(icon, color: color),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
                         ),
                       ),
-                    ),
-                  ],
+                      Text(
+                        value,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ),
+            if (progress != null) ...[
+              SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.grey.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '${(progress * 100).toInt()}% tamamlandı',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGPSStatCard(String title, String value, IconData icon, Color color) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
             ),
           ],
@@ -505,66 +562,16 @@ class _StepDetailsScreenState extends State<StepDetailsScreen>
     );
   }
 
-  Widget _buildMonthlyChart(BuildContext context, ExerciseProvider exerciseProvider, bool isDarkMode) {
-    return SingleChildScrollView( // ScrollView eklendi
-      child: Container(
-        margin: const EdgeInsets.all(16), // 20'den 16'ya azaltıldı
-        padding: const EdgeInsets.all(20), // 24'ten 20'ye azaltıldı
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isDarkMode ? null : [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // MainAxisSize eklendi
-          children: [
-            Text(
-              'Aylık Özet',
-              style: TextStyle(
-                fontSize: 18, // 20'den 18'e azaltıldı
-                fontWeight: FontWeight.w600,
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
-            _buildStatRow(context, Icons.trending_up_rounded, 'Toplam Adım', '287,450', isDarkMode),
-            _buildStatRow(context, Icons.local_fire_department_rounded, 'Toplam Kalori', '8,420 kal', isDarkMode),
-            _buildStatRow(context, Icons.map_rounded, 'Toplam Mesafe', '215.6 km', isDarkMode),
-            _buildStatRow(context, Icons.emoji_events_rounded, 'Hedeflenen Günler', '24/30 gün', isDarkMode),
-            const SizedBox(height: 16), // 20'den 16'ya azaltıldı
-            Container(
-              padding: const EdgeInsets.all(12), // 16'dan 12'ye azaltıldı
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.celebration_rounded, color: AppColors.primaryGreen),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Bu ay harika performans! Hedeflerinin %80\'ine ulaştın.',
-                      style: TextStyle(
-                        color: AppColors.primaryGreen,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14, // Font boyutu eklendi
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    if (duration.inHours > 0) {
+      return '$hours:$minutes:$seconds';
+    } else {
+      return '$minutes:$seconds';
+    }
   }
 }
