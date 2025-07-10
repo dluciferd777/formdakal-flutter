@@ -1,4 +1,3 @@
-// lib/utils/theme.dart - DÜZENLENMIŞ APPBAR TEMALARI
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'colors.dart';
@@ -12,15 +11,17 @@ class AppTheme {
     brightness: Brightness.light,
     primaryColor: AppColors.primaryGreen,
     scaffoldBackgroundColor: AppColors.lightSurface,
+    
+    // GÜÇLÜ APPBAR AYARLARI - TÜM SAYFALARDA GEÇERLİ
     appBarTheme: AppBarTheme(
-      // BEYAZ TEMADA APPBAR YEŞİL
-      backgroundColor: AppColors.primaryGreen,
-      foregroundColor: Colors.white, // İkonlar ve yazılar beyaz
+      backgroundColor: AppColors.primaryGreen, // HER ZAMAN YEŞİL
+      foregroundColor: Colors.white, // HER ZAMAN BEYAZ
+      surfaceTintColor: AppColors.primaryGreen, // Material 3 için
       elevation: 2,
       centerTitle: true,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Status bar ikonları beyaz
+        statusBarIconBrightness: Brightness.light, // Status bar beyaz
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
@@ -30,7 +31,7 @@ class AppTheme {
         fontSize: 20,
       ),
       iconTheme: const IconThemeData(
-        color: Colors.white, // AppBar ikonları beyaz
+        color: Colors.white, // İkonlar beyaz
         size: 24,
       ),
       actionsIconTheme: const IconThemeData(
@@ -38,6 +39,7 @@ class AppTheme {
         size: 24,
       ),
     ),
+    
     cardTheme: CardThemeData(
       color: AppColors.lightCard,
       elevation: 2,
@@ -82,15 +84,17 @@ class AppTheme {
     brightness: Brightness.dark,
     primaryColor: AppColors.primaryGreen,
     scaffoldBackgroundColor: AppColors.darkBackground,
+    
+    // GÜÇLÜ APPBAR AYARLARI - TÜM SAYFALARDA GEÇERLİ
     appBarTheme: AppBarTheme(
-      // KOYU TEMADA APPBAR SİYAH/KOYU GRİ
-      backgroundColor: AppColors.darkSurface, // Siyah/koyu gri
-      foregroundColor: Colors.white, // İkonlar ve yazılar beyaz
+      backgroundColor: AppColors.darkSurface, // KOYU TEMADA SİYAH
+      foregroundColor: Colors.white, // HER ZAMAN BEYAZ
+      surfaceTintColor: AppColors.darkSurface, // Material 3 için
       elevation: 0,
       centerTitle: true,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Status bar ikonları beyaz
+        statusBarIconBrightness: Brightness.light, // Status bar beyaz
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
@@ -100,7 +104,7 @@ class AppTheme {
         fontSize: 20,
       ),
       iconTheme: const IconThemeData(
-        color: Colors.white, // AppBar ikonları beyaz
+        color: Colors.white, // İkonlar beyaz
         size: 24,
       ),
       actionsIconTheme: const IconThemeData(
@@ -108,6 +112,7 @@ class AppTheme {
         size: 24,
       ),
     ),
+    
     cardTheme: CardThemeData(
       color: AppColors.darkCard,
       elevation: 4,

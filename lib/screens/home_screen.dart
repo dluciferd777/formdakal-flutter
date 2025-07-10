@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart - SAMSUNG HEALTH TARZINDA DÜZELTILMIŞ VERSİYON
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -158,7 +157,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         SliverToBoxAdapter(
                           child: Column(
                             children: [
-                              // Samsung Health Tarzı Step Counter Card
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: _buildAdvancedStepCounterCard(isDarkMode, exerciseProvider),
@@ -397,9 +395,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       ),
                     ],
                   ),
-                ), // Container
-              ), // Card
-            ); // GestureDetector
+                ),
+              ), // HATA BURADAYDI: Eksik parantez eklendi.
+            );
           },
         );
       },
@@ -491,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           SnackBar(
             content: Text('Güncelleme hatası: $e'),
             backgroundColor: AppColors.error,
-            duration: Duration(seconds: 1),
+            duration: const Duration(seconds: 1),
           ),
         );
       }

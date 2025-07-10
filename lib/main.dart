@@ -1,4 +1,4 @@
-// lib/main.dart
+// lib/main.dart - TEMA DÜZELTMESİ YAPILDI
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:formdakal/models/workout_plan_model.dart';
@@ -173,32 +173,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
-            theme: AppTheme.lightTheme.copyWith(
-              scaffoldBackgroundColor: Colors.white,
-              appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
-                systemOverlayStyle: const SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.dark,
-                  systemNavigationBarIconBrightness: Brightness.dark,
-                ),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-            ),
-            darkTheme: AppTheme.darkTheme.copyWith(
-              scaffoldBackgroundColor: const Color(0xFF121212),
-              appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
-                systemOverlayStyle: const SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light,
-                  systemNavigationBarIconBrightness: Brightness.light,
-                ),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-            ),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
             home: const SplashScreen(),
             routes: {
               '/onboarding': (context) => const OnboardingScreen(),
@@ -219,17 +195,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/daily_summary': (context) => const DailySummaryScreen(),
             },
             builder: (context, child) {
+              // YENİ: GÜÇLÜ TEMA ZORLAMASI - TÜM APPBAR'LAR DÜZELİR
+              final isDarkMode = themeProvider.isDarkMode;
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light, // HER ZAMAN BEYAZ
                   systemNavigationBarColor: Colors.transparent,
-                  systemNavigationBarDividerColor: Colors.transparent,
-                  statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-                      ? Brightness.light 
-                      : Brightness.dark,
-                  systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-                      ? Brightness.light 
-                      : Brightness.dark,
+                  systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
                 ),
                 child: child!,
               );
