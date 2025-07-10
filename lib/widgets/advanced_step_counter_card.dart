@@ -1,366 +1,457 @@
-// lib/widgets/advanced_step_counter_card.dart
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/advanced_step_counter_service.dart';
-import '../utils/colors.dart';
+// lib/services/advanced_step_counter_service.dart - ARKA PLAN DESTEKLİ VERSİYON
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:pedometer/pedometer.dart';
 
-class AdvancedStepCounterCard extends StatefulWidget {
-  const AdvancedStepCounterCard({super.key});
+class AdvancedStepCounterService extends ChangeNotifier {
+  static final AdvancedStepCounterService _instance = AdvancedStepCounterService._internal();
+  factory AdvancedStepCounterService() => _instance;
+  AdvancedStepCounterService._internal();
 
-  @override
-  State<AdvancedStepCounterCard> createState() => _AdvancedStepCounterCardState();
-}
-
-class _AdvancedStepCounterCardState extends State<AdvancedStepCounterCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
+  // Sensör subscription'ları - ASLA KAPANMAZ
+  StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  StreamSubscription<StepCount>? _pedometerSubscription;
+  StreamSubscription<PedestrianStatus>? _pedestrianSubscription;
   
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-    
-    // Servisi başlat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeStepCounter();
-    });
-  }
+  // Adım sayma değişkenleri
+  int _todaySteps = 0;
+  int _totalSteps = 0;
+  int _baseStepCount = 0;        // Gün başındaki step count (pedometer için)
+  bool _isWalking = false;
+  bool _isServiceActive = false;
+  
+  // Algoritma parametreleri
+  static const double _accelerationThreshold = 0.1;
+  static const double _timeThreshold = 0.25;
+  static const int _windowSize = 10;
+  
+  // Hibrit sistem değişkenleri
+  bool _isPedometerAvailable = false;
+  bool _useBackgroundMode = true;        // ARKA PLAN MODU
+  
+  // Filtreleme için veri yapıları
+  final List<double> _accelerationData = [];
+  final List<DateTime> _stepTimeStamps = [];
+  DateTime? _lastStepTime;
+  double _lastMagnitude = 0.0;
+  bool _isPeakDetected = false;
+  
+  // Sahte adım tespiti için
+  int _consecutiveQuickSteps = 0;
+  static const int _maxConsecutiveQuickSteps = 5;
+  static const double _naturalStepFrequency = 2.5;
+  
+  // Getter'lar
+  int get todaySteps => _todaySteps;
+  int get totalSteps => _totalSteps;
+  bool get isWalking => _isWalking;
+  bool get isServiceActive => _isServiceActive;
 
-  Future<void> _initializeStepCounter() async {
-    final stepService = AdvancedStepCounterService();
-    if (!stepService.isServiceActive) {
-      await stepService.initialize();
+  // Servisi başlat
+  Future<void> initialize() async {
+    try {
+      // İzinleri kontrol et
+      await _requestPermissions();
+      
+      // Kaydedilmiş verileri yükle
+      await _loadSavedData();
+      
+      // ARKA PLAN İÇİN: Uygulama lifecycle'ına bağla
+      _setupBackgroundHandling();
+      
+      // ARKA PLAN MODu: Önce native pedometer'ı dene
+      await _initializePedometer();
+      
+      // Eğer pedometer yoksa accelerometer kullan
+      if (!_isPedometerAvailable) {
+        await _initializeAccelerometer();
+      }
+      
+      _isServiceActive = true;
+      notifyListeners();
+      
+      print('✅ Gelişmiş Adım Sayar başlatıldı - Pedometer: $_isPedometerAvailable, Arka Plan: $_useBackgroundMode');
+    } catch (e) {
+      print('❌ Adım sayar başlatma hatası: $e');
     }
   }
 
+  // ARKA PLAN HANDLING
+  void _setupBackgroundHandling() {
+    // App lifecycle değişikliklerini dinle
+    SystemChannels.lifecycle.setMessageHandler((msg) async {
+      switch (msg) {
+        case 'AppLifecycleState.paused':
+          // Uygulama arka planda - sensörleri DEVAM ETTİR
+          print('📱 Uygulama arka planda - Adım sayar çalışmaya devam ediyor');
+          _saveData(); // Veriyi kaydet
+          break;
+          
+        case 'AppLifecycleState.resumed':
+          // Uygulama öne geldi - verileri güncelle
+          print('📱 Uygulama öne geldi - Veriler güncelleniyor');
+          await _loadSavedData();
+          notifyListeners();
+          break;
+          
+        case 'AppLifecycleState.detached':
+          // Uygulama kapanıyor - SON KAYDETME
+          print('📱 Uygulama kapanıyor - Son veri kaydediliyor');
+          _saveData();
+          break;
+      }
+      return null;
+    });
+  }
+
+  // Pedometer'ı başlat (Android native sensor - ARKA PLANDA ÇALIŞIR)
+  Future<void> _initializePedometer() async {
+    try {
+      // Pedometer status stream'ini test et
+      final pedestrianStream = Pedometer.pedestrianStatusStream;
+      final stepStream = Pedometer.stepCountStream;
+      
+      // Status subscription - ASLA CANCEL ETME
+      _pedestrianSubscription = pedestrianStream.listen(
+        (PedestrianStatus event) {
+          _isWalking = event.status == 'walking';
+          notifyListeners();
+        },
+        onError: (error) {
+          print('⚠️ Pedestrian status hatası: $error');
+          _switchToAccelerometer();
+        },
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
+      
+      // Step count subscription - ASLA CANCEL ETME  
+      _pedometerSubscription = stepStream.listen(
+        (StepCount event) {
+          _handlePedometerSteps(event.steps);
+        },
+        onError: (error) {
+          print('⚠️ Pedometer step hatası: $error');
+          _switchToAccelerometer();
+        },
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
+      
+      _isPedometerAvailable = true;
+      print('✅ Pedometer aktif (Arka plan destekli)');
+      
+    } catch (e) {
+      print('❌ Pedometer başlatılamadı: $e');
+      _isPedometerAvailable = false;
+    }
+  }
+
+  // Accelerometer tabanlı adım sayma (Fallback)
+  Future<void> _initializeAccelerometer() async {
+    try {
+      _accelerometerSubscription = accelerometerEventStream(
+        samplingPeriod: const Duration(milliseconds: 200), // Daha az sıklık - batarya için
+      ).listen(
+        _processAccelerometerData,
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
+      
+      print('✅ Accelerometer tabanlı adım sayma aktif (Fallback mode)');
+    } catch (e) {
+      print('❌ Accelerometer başlatılamadı: $e');
+    }
+  }
+
+  // Pedometer verilerini işle (Android native step counter)
+  void _handlePedometerSteps(int totalStepsSinceBoot) {
+    // İlk başlatmada veya yeni gün başlangıcında base değeri ayarla
+    if (_baseStepCount == 0 || _isNewDay()) {
+      _baseStepCount = totalStepsSinceBoot;
+      _resetDailyStepsIfNewDay();
+    }
+    
+    // Telefon yeniden başladıysa (step count düştüyse)
+    if (totalStepsSinceBoot < _baseStepCount) {
+      _baseStepCount = 0;
+    }
+    
+    // Bugünkü adımları hesapla
+    final newDailySteps = totalStepsSinceBoot - _baseStepCount;
+    
+    if (newDailySteps != _todaySteps && newDailySteps >= 0) {
+      _todaySteps = newDailySteps;
+      _totalSteps = totalStepsSinceBoot;
+      _saveData();
+      notifyListeners();
+      
+      print('👣 Pedometer: Günlük=$_todaySteps, Toplam=$_totalSteps');
+    }
+  }
+
+  // Yeni gün kontrolü
+  bool _isNewDay() {
+    final now = DateTime.now();
+    final prefs = SharedPreferences.getInstance();
+    
+    return prefs.then((p) {
+      final lastDate = p.getString('last_step_date') ?? '';
+      final todayStr = '${now.year}-${now.month}-${now.day}';
+      
+      if (lastDate != todayStr) {
+        p.setString('last_step_date', todayStr);
+        return true;
+      }
+      return false;
+    }) as bool;
+  }
+
+  // Yeni gün başlangıcında günlük adımları sıfırla
+  void _resetDailyStepsIfNewDay() {
+    final now = DateTime.now();
+    SharedPreferences.getInstance().then((prefs) {
+      final lastResetDate = prefs.getString('last_reset_date') ?? '';
+      final todayStr = '${now.year}-${now.month}-${now.day}';
+      
+      if (lastResetDate != todayStr) {
+        // Yeni gün - günlük adımları sıfırla
+        _todaySteps = 0;
+        prefs.setString('last_reset_date', todayStr);
+        print('🌅 Yeni gün başladı - Günlük adımlar sıfırlandı');
+      }
+    });
+  }
+
+  // Accelerometer verilerini işle (Gelişmiş algoritma - fallback)
+  void _processAccelerometerData(AccelerometerEvent event) {
+    final magnitude = _calculateMagnitude(event.x, event.y, event.z);
+    final now = DateTime.now();
+    
+    // Veri penceresini güncelle
+    _accelerationData.add(magnitude);
+    if (_accelerationData.length > _windowSize) {
+      _accelerationData.removeAt(0);
+    }
+    
+    // Minimum pencere boyutuna ulaştıktan sonra analiz et
+    if (_accelerationData.length >= _windowSize) {
+      _analyzeStepPattern(magnitude, now);
+    }
+    
+    _lastMagnitude = magnitude;
+  }
+
+  // Adım pattern analizi (aynı)
+  void _analyzeStepPattern(double magnitude, DateTime now) {
+    final average = _accelerationData.reduce((a, b) => a + b) / _accelerationData.length;
+    
+    final isAboveThreshold = magnitude > (average + _accelerationThreshold);
+    final isBelowThreshold = _lastMagnitude > (average + _accelerationThreshold) && 
+                            magnitude <= (average + _accelerationThreshold);
+    
+    if (isBelowThreshold && !_isPeakDetected) {
+      _isPeakDetected = true;
+      
+      if (_lastStepTime != null) {
+        final timeDiff = now.difference(_lastStepTime!).inMilliseconds / 1000.0;
+        
+        if (timeDiff < _timeThreshold) {
+          _consecutiveQuickSteps++;
+          
+          if (_consecutiveQuickSteps > _maxConsecutiveQuickSteps) {
+            _isPeakDetected = false;
+            return;
+          }
+        } else {
+          _consecutiveQuickSteps = 0;
+        }
+        
+        if (timeDiff > (1.0 / _naturalStepFrequency) * 0.5) {
+          _registerStep(now);
+        }
+      } else {
+        _registerStep(now);
+      }
+    } else if (!isAboveThreshold) {
+      _isPeakDetected = false;
+    }
+    
+    _analyzeWalkingStatus(average);
+  }
+
+  // Adım kaydet (accelerometer için)
+  void _registerStep(DateTime now) {
+    _todaySteps++;
+    _totalSteps++;
+    _lastStepTime = now;
+    _stepTimeStamps.add(now);
+    
+    if (_stepTimeStamps.length > 10) {
+      _stepTimeStamps.removeAt(0);
+    }
+    
+    _saveData();
+    notifyListeners();
+    
+    print('👣 Accelerometer: Adım tespit edildi: $_todaySteps');
+  }
+
+  // Yürüme durumu analizi
+  void _analyzeWalkingStatus(double average) {
+    final recentActivity = _accelerationData.length >= 5 
+        ? _accelerationData.skip(_accelerationData.length - 5).toList()
+        : _accelerationData;
+    
+    final recentAverage = recentActivity.isNotEmpty 
+        ? recentActivity.reduce((a, b) => a + b) / recentActivity.length
+        : 0.0;
+    
+    final isCurrentlyWalking = recentAverage > (average * 1.1);
+    
+    if (isCurrentlyWalking != _isWalking) {
+      _isWalking = isCurrentlyWalking;
+      notifyListeners();
+    }
+  }
+
+  // Accelerometer'a geç
+  void _switchToAccelerometer() {
+    if (!_isPedometerAvailable) return;
+    
+    _isPedometerAvailable = false;
+    _pedometerSubscription?.cancel();
+    _pedestrianSubscription?.cancel();
+    
+    _initializeAccelerometer();
+    print('🔄 Pedometer hatası - Accelerometer\'a geçildi');
+  }
+
+  // Vector magnitude hesapla
+  double _calculateMagnitude(double x, double y, double z) {
+    return sqrt(x * x + y * y + z * z);
+  }
+
+  // İzinleri iste
+  Future<void> _requestPermissions() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      await Permission.activityRecognition.request();
+      await Permission.sensors.request();
+    }
+  }
+
+  // Günlük adımları manuel sıfırla
+  void resetDailySteps() {
+    _todaySteps = 0;
+    _baseStepCount = _totalSteps; // Mevcut total'ı base olarak ayarla
+    _saveData();
+    notifyListeners();
+    print('🔄 Günlük adımlar manuel sıfırlandı');
+  }
+
+  // Veriyi kaydet
+  Future<void> _saveData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final todayKey = '${today.year}-${today.month}-${today.day}';
+      
+      await prefs.setInt('daily_steps_$todayKey', _todaySteps);
+      await prefs.setInt('total_steps', _totalSteps);
+      await prefs.setInt('base_step_count', _baseStepCount);
+    } catch (e) {
+      print('❌ Veri kaydetme hatası: $e');
+    }
+  }
+
+  // Veriyi yükle
+  Future<void> _loadSavedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final todayKey = '${today.year}-${today.month}-${today.day}';
+      
+      _todaySteps = prefs.getInt('daily_steps_$todayKey') ?? 0;
+      _totalSteps = prefs.getInt('total_steps') ?? 0;
+      _baseStepCount = prefs.getInt('base_step_count') ?? 0;
+      
+      print('📂 Kaydedilmiş veri yüklendi: Günlük=$_todaySteps, Toplam=$_totalSteps');
+    } catch (e) {
+      print('❌ Veri yükleme hatası: $e');
+    }
+  }
+
+  // Belirli tarih için adım sayısı al
+  Future<int> getStepsForDate(DateTime date) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dateKey = '${date.year}-${date.month}-${date.day}';
+      return prefs.getInt('daily_steps_$dateKey') ?? 0;
+    } catch (e) {
+      print('❌ Tarih için veri alma hatası: $e');
+      return 0;
+    }
+  }
+
+  // Haftalık istatistik
+  Future<Map<DateTime, int>> getWeeklyStats() async {
+    final Map<DateTime, int> weeklyData = {};
+    final now = DateTime.now();
+    
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final steps = await getStepsForDate(date);
+      weeklyData[DateTime(date.year, date.month, date.day)] = steps;
+    }
+    
+    return weeklyData;
+  }
+
+  // ARKA PLAN MODu: Dispose fonksiyonunu değiştir
   @override
   void dispose() {
-    _animationController.dispose();
+    // SADECE UYGULAMA TAMAMEN KAPANIRKEN ÇAĞIR
+    // Normal arka plan geçişlerinde ÇAĞIRMA
+    print('⚠️ AdvancedStepCounterService dispose çağrıldı');
     super.dispose();
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-
-    return ChangeNotifierProvider.value(
-      value: AdvancedStepCounterService(),
-      child: Consumer<AdvancedStepCounterService>(
-        builder: (context, stepService, child) {
-          return AnimatedBuilder(
-            animation: _scaleAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
-                child: GestureDetector(
-                  onTapDown: (_) => _animationController.forward(),
-                  onTapUp: (_) => _animationController.reverse(),
-                  onTapCancel: () => _animationController.reverse(),
-                  onTap: () => _showStepDetails(context, stepService),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primaryGreen.withOpacity(0.1),
-                          AppColors.primaryGreen.withOpacity(0.05),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.primaryGreen.withOpacity(0.3),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primaryGreen.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Başlık ve Durum
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryGreen.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      Icons.directions_walk,
-                                      color: AppColors.primaryGreen,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Adım Sayar',
-                                        style: theme.textTheme.titleLarge?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: isDarkMode ? Colors.white : Colors.black87,
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: stepService.isServiceActive
-                                                  ? Colors.green
-                                                  : Colors.orange,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            stepService.isServiceActive ? 'Aktif' : 'Başlatılıyor...',
-                                            style: theme.textTheme.bodySmall?.copyWith(
-                                              color: isDarkMode ? Colors.white70 : Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              // Yürüme durumu
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: stepService.isWalking
-                                      ? Colors.green.withOpacity(0.2)
-                                      : Colors.grey.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      stepService.isWalking ? Icons.directions_walk : Icons.pause,
-                                      size: 16,
-                                      color: stepService.isWalking ? Colors.green : Colors.grey,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      stepService.isWalking ? 'Yürüyor' : 'Durgun',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: stepService.isWalking ? Colors.green : Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Adım Sayısı
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Bugün',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Text(
-                                      '${stepService.todaySteps}',
-                                      key: ValueKey(stepService.todaySteps),
-                                      style: theme.textTheme.headlineLarge?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryGreen,
-                                        fontSize: 36,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    'adım',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              // Hedef göstergesi
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'Hedef: 10.000',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    width: 120,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: FractionallySizedBox(
-                                      alignment: Alignment.centerLeft,
-                                      widthFactor: (stepService.todaySteps / 10000).clamp(0.0, 1.0),
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              AppColors.primaryGreen,
-                                              AppColors.primaryGreen.withOpacity(0.7),
-                                            ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${((stepService.todaySteps / 10000) * 100).toInt()}%',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.primaryGreen,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Hızlı Aksiyonlar
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildActionButton(
-                                  context,
-                                  'Sıfırla',
-                                  Icons.refresh,
-                                  () => _showResetDialog(context, stepService),
-                                  Colors.orange,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildActionButton(
-                                  context,
-                                  'Test Adım',
-                                  Icons.add,
-                                  () => stepService.addTestStep(),
-                                  Colors.blue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
+  
+  // Manuel durdurma fonksiyonu (gerekirse)
+  void forceStop() {
+    _accelerometerSubscription?.cancel();
+    _pedometerSubscription?.cancel();
+    _pedestrianSubscription?.cancel();
+    _isServiceActive = false;
+    print('🛑 Adım sayar manuel olarak durduruldu');
   }
 
-  Widget _buildActionButton(
-    BuildContext context,
-    String text,
-    IconData icon,
-    VoidCallback onPressed,
-    Color color,
-  ) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(
-        text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.1),
-        foregroundColor: color,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: color.withOpacity(0.3)),
-        ),
-      ),
-    );
+  // Test fonksiyonu
+  void addTestStep() {
+    if (!_isServiceActive) return;
+    _registerStep(DateTime.now());
   }
 
-  void _showStepDetails(BuildContext context, AdvancedStepCounterService stepService) {
-    Navigator.pushNamed(context, '/step_details');
+  // Kalibasyon fonksiyonu
+  void calibrateThreshold(double newThreshold) {
+    print('📊 Yeni eşik değeri ayarlandı: $newThreshold');
   }
 
-  void _showResetDialog(BuildContext context, AdvancedStepCounterService stepService) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Adımları Sıfırla'),
-        content: const Text('Bugünkü adım sayısını sıfırlamak istediğinizden emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              stepService.resetDailySteps();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Günlük adımlar sıfırlandı'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-            child: const Text('Sıfırla'),
-          ),
-        ],
-      ),
-    );
+  // Samsung Health tarzı ek özellikler
+  
+  // Kalori hesaplama
+  int getCaloriesFromSteps() {
+    return (_todaySteps * 0.06).round(); // Basit formül
+  }
+  
+  // Mesafe hesaplama
+  double getDistanceFromSteps() {
+    return _todaySteps * 0.0008; // km cinsinden, ortalama adım uzunluğu 0.8m
+  }
+  
+  // Aktif dakika hesaplama (örnek)
+  int getActiveMintes() {
+    return (_todaySteps / 100).round().clamp(0, 90); // Basit formül
   }
 }

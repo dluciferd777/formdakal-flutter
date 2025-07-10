@@ -1,4 +1,4 @@
-// lib/main.dart - APPBAR TEMA DÜZELTMESİ
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:formdakal/models/workout_plan_model.dart';
@@ -29,7 +29,6 @@ import 'package:formdakal/screens/step_details_screen.dart';
 import 'package:formdakal/screens/workout_plan_details_screen.dart';
 import 'package:formdakal/screens/workout_plans_list_screen.dart';
 import 'package:formdakal/services/notification_service.dart';
-import 'package:formdakal/services/advanced_step_counter_service.dart';
 import 'package:formdakal/utils/theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -46,7 +45,7 @@ void main() async {
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light, // Varsayılan olarak beyaz
+      statusBarIconBrightness: Brightness.dark,
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
@@ -144,10 +143,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => MeasurementProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => ProgressPhotoProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AchievementProvider(widget.prefs)),
-        
-        // Step Counter Service
-        ChangeNotifierProvider(create: (_) => AdvancedStepCounterService()),
-        
         ChangeNotifierProxyProvider<AchievementProvider, UserProvider>(
           create: (context) => UserProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
@@ -178,9 +173,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
-            // DÜZENLENMIŞ TEMA - APPBAR OVERRIDE KALDIRILDI
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme.copyWith(
+              scaffoldBackgroundColor: Colors.white,
+              appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                  systemNavigationBarIconBrightness: Brightness.dark,
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+            ),
+            darkTheme: AppTheme.darkTheme.copyWith(
+              scaffoldBackgroundColor: const Color(0xFF121212),
+              appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarIconBrightness: Brightness.light,
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+            ),
             home: const SplashScreen(),
             routes: {
               '/onboarding': (context) => const OnboardingScreen(),
@@ -200,17 +218,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/step_details': (context) => const StepDetailsScreen(),
               '/daily_summary': (context) => const DailySummaryScreen(),
             },
-            // SİSTEM UI OVERLAY DİNAMİK AYARLAMA
             builder: (context, child) {
-              final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-              
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
                   systemNavigationBarColor: Colors.transparent,
                   systemNavigationBarDividerColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light, // Hep beyaz (çünkü AppBar hep koyu)
-                  systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+                  statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
+                      ? Brightness.light 
+                      : Brightness.dark,
+                  systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
+                      ? Brightness.light 
+                      : Brightness.dark,
                 ),
                 child: child!,
               );
