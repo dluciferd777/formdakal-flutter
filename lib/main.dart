@@ -1,4 +1,4 @@
-// lib/main.dart - TEMA DÜZELTMESİ YAPILDI
+// lib/main.dart - Native Step Counter ile güncellenmiş
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:formdakal/models/workout_plan_model.dart';
@@ -11,6 +11,8 @@ import 'package:formdakal/providers/reminder_provider.dart';
 import 'package:formdakal/providers/theme_provider.dart';
 import 'package:formdakal/providers/user_provider.dart';
 import 'package:formdakal/providers/workout_plan_provider.dart';
+import 'package:formdakal/services/notification_service.dart';
+import 'package:formdakal/services/native_step_counter_service.dart'; // YENİ EKLENDİ
 import 'package:formdakal/screens/achievements_screen.dart';
 import 'package:formdakal/screens/calorie_tracking_screen.dart';
 import 'package:formdakal/screens/daily_summary_screen.dart';
@@ -28,7 +30,6 @@ import 'package:formdakal/screens/splash_screen.dart';
 import 'package:formdakal/screens/step_details_screen.dart';
 import 'package:formdakal/screens/workout_plan_details_screen.dart';
 import 'package:formdakal/screens/workout_plans_list_screen.dart';
-import 'package:formdakal/services/notification_service.dart';
 import 'package:formdakal/utils/theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +37,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // YENİ EKLENDİ: Native Step Counter servisini başlat
+  await NativeStepCounterService().initialize();
   
   // Bildirim servisini başlat
   await NotificationService().init(); 
@@ -91,27 +95,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       case AppLifecycleState.paused:
         _isAppPaused = true;
         _saveAllData();
-        print("📱 Uygulama arkaplanda - Veriler kaydedildi");
+        print("📱 Uygulama arkaplanda - Native step counter çalışmaya devam ediyor");
         break;
         
       case AppLifecycleState.resumed:
         if (_isAppPaused) {
           _loadAllData();
           _isAppPaused = false;
-          print("📱 Uygulama öne geldi - Veriler yüklendi");
+          print("📱 Uygulama öne geldi - Native veriler güncelleniyor");
         }
         break;
         
       case AppLifecycleState.detached:
         _saveAllData();
-        print("📱 Uygulama kapatılıyor - Son kaydetme");
+        print("📱 Uygulama kapatılıyor - Native service çalışmaya devam edecek");
         break;
         
       case AppLifecycleState.inactive:
         break;
         
       case AppLifecycleState.hidden:
-        print("📱 Uygulama gizlendi");
+        print("📱 Uygulama gizlendi - Native step counter aktif");
         break;
     }
   }
@@ -143,6 +147,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => MeasurementProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => ProgressPhotoProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AchievementProvider(widget.prefs)),
+        
+        // YENİ EKLENDİ: Native Step Counter Service provider'ı
+        ChangeNotifierProvider(create: (_) => NativeStepCounterService()),
+        
         ChangeNotifierProxyProvider<AchievementProvider, UserProvider>(
           create: (context) => UserProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
@@ -173,8 +181,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme.copyWith(
+              scaffoldBackgroundColor: Colors.white,
+              appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.dark,
+                  systemNavigationBarIconBrightness: Brightness.dark,
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+            ),
+            darkTheme: AppTheme.darkTheme.copyWith(
+              scaffoldBackgroundColor: const Color(0xFF121212),
+              appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
+                systemOverlayStyle: const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Colors.transparent,
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarIconBrightness: Brightness.light,
+                ),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+            ),
             home: const SplashScreen(),
             routes: {
               '/onboarding': (context) => const OnboardingScreen(),
@@ -195,14 +227,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/daily_summary': (context) => const DailySummaryScreen(),
             },
             builder: (context, child) {
-              // YENİ: GÜÇLÜ TEMA ZORLAMASI - TÜM APPBAR'LAR DÜZELİR
-              final isDarkMode = themeProvider.isDarkMode;
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
                   statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light, // HER ZAMAN BEYAZ
                   systemNavigationBarColor: Colors.transparent,
-                  systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+                  systemNavigationBarDividerColor: Colors.transparent,
+                  statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
+                      ? Brightness.light 
+                      : Brightness.dark,
+                  systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
+                      ? Brightness.light 
+                      : Brightness.dark,
                 ),
                 child: child!,
               );

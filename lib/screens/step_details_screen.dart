@@ -1,9 +1,9 @@
-// lib/screens/step_details_screen.dart - GPS EKLİ
+// lib/screens/step_details_screen.dart - Hibrit Sistem
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
-import 'dart:async';
+import 'dart:math' as math;
 import '../services/advanced_step_counter_service.dart';
+import '../services/native_step_counter_service.dart';
 import '../utils/colors.dart';
 
 class StepDetailsScreen extends StatefulWidget {
@@ -13,563 +13,617 @@ class StepDetailsScreen extends StatefulWidget {
   State<StepDetailsScreen> createState() => _StepDetailsScreenState();
 }
 
-class _StepDetailsScreenState extends State<StepDetailsScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  
-  // GPS Tracking
-  StreamSubscription<Position>? _positionStream;
-  List<Position> _routePoints = [];
-  bool _isTracking = false;
-  double _totalDistance = 0.0;
-  DateTime? _trackingStartTime;
-  Duration _trackingDuration = Duration.zero;
-  Timer? _durationTimer;
-  
-  // Tracking stats
-  double _currentSpeed = 0.0; // m/s
-  double _averageSpeed = 0.0;
-  double _maxSpeed = 0.0;
-  double _calories = 0.0;
+class _StepDetailsScreenState extends State<StepDetailsScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _ringController;
+  late AnimationController _pulseController;
+  late Animation<double> _ringAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _requestLocationPermission();
+    
+    _ringController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+
+    _ringAnimation = CurvedAnimation(
+      parent: _ringController,
+      curve: Curves.easeInOutCubic,
+    );
+
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.1,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+
+    _ringController.forward();
+    _pulseController.repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _stopTracking();
-    _durationTimer?.cancel();
+    _ringController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
-  Future<void> _requestLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Konum izni gerekli')),
-        );
-        return;
-      }
-    }
+  // Hibrit veri alma sistemi
+  StepData _getStepData(BuildContext context) {
+    final nativeService = Provider.of<NativeStepCounterService>(context, listen: false);
+    final advancedService = Provider.of<AdvancedStepCounterService>(context, listen: false);
     
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Konum izni ayarlardan açılmalı')),
-      );
-      return;
-    }
-  }
-
-  void _startTracking() async {
-    if (_isTracking) return;
-    
-    try {
-      setState(() {
-        _isTracking = true;
-        _trackingStartTime = DateTime.now();
-        _routePoints.clear();
-        _totalDistance = 0.0;
-        _currentSpeed = 0.0;
-        _averageSpeed = 0.0;
-        _maxSpeed = 0.0;
-        _calories = 0.0;
-        _trackingDuration = Duration.zero;
-      });
-
-      const LocationSettings locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // 5 metre değişiklik
-      );
-
-      _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-        (Position position) {
-          _updateLocation(position);
-        },
-        onError: (error) {
-          print('GPS Hatası: $error');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('GPS hatası: $error')),
-          );
-        },
-      );
-
-      // Süre sayacını başlat
-      _durationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        if (_trackingStartTime != null) {
-          setState(() {
-            _trackingDuration = DateTime.now().difference(_trackingStartTime!);
-          });
-        }
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🏃‍♂️ GPS takip başladı'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    } catch (e) {
-      setState(() => _isTracking = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Takip başlatılamadı: $e')),
+    // Native sensör varsa ve aktifse ondan al
+    if (nativeService.isNativeSensorAvailable && nativeService.isActive) {
+      return StepData(
+        steps: nativeService.dailySteps,
+        isWalking: nativeService.isWalking,
+        systemType: 'Native Android Sensör',
+        accuracy: 'Yüksek Hassasiyet',
+        backgroundColor: Colors.green,
       );
     }
-  }
-
-  void _stopTracking() {
-    if (!_isTracking) return;
-    
-    setState(() => _isTracking = false);
-    _positionStream?.cancel();
-    _durationTimer?.cancel();
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('⏹️ GPS takip durduruldu'),
-        backgroundColor: AppColors.error,
-      ),
-    );
-  }
-
-  void _updateLocation(Position position) {
-    if (!_isTracking) return;
-    
-    setState(() {
-      // Mesafe hesaplama
-      if (_routePoints.isNotEmpty) {
-        final lastPoint = _routePoints.last;
-        final distance = Geolocator.distanceBetween(
-          lastPoint.latitude,
-          lastPoint.longitude,
-          position.latitude,
-          position.longitude,
-        );
-        _totalDistance += distance;
-      }
-      
-      _routePoints.add(position);
-      _currentSpeed = position.speed; // m/s
-      
-      // Maksimum hız
-      if (_currentSpeed > _maxSpeed) {
-        _maxSpeed = _currentSpeed;
-      }
-      
-      // Ortalama hız
-      if (_trackingDuration.inSeconds > 0) {
-        _averageSpeed = _totalDistance / _trackingDuration.inSeconds;
-      }
-      
-      // Kalori hesaplama (basit formül)
-      _calories = _calculateCalories();
-    });
-  }
-
-  double _calculateCalories() {
-    // Kalori = MET * Kilo * Saat
-    // Yürüyüş: 3.5 MET, Koşu: 8-12 MET
-    final speedKmh = _averageSpeed * 3.6; // m/s to km/h
-    double met = 3.5; // Varsayılan yürüyüş
-    
-    if (speedKmh > 8) {
-      met = 8.0; // Koşu
-    } else if (speedKmh > 6) {
-      met = 5.0; // Hızlı yürüyüş
+    // Yoksa advanced sistem kullan
+    else if (advancedService.isServiceActive) {
+      return StepData(
+        steps: advancedService.todaySteps,
+        isWalking: advancedService.isWalking,
+        systemType: 'Accelerometer Tabanlı',
+        accuracy: 'Orta Hassasiyet',
+        backgroundColor: Colors.orange,
+      );
     }
-    
-    final hours = _trackingDuration.inSeconds / 3600.0;
-    final weight = 70.0; // Varsayılan kilo - user provider'dan alınabilir
-    
-    return met * weight * hours;
+    // Hiçbiri yoksa varsayılan
+    else {
+      return StepData(
+        steps: 0,
+        isWalking: false,
+        systemType: 'Sensör Bulunamadı',
+        accuracy: 'Aktif Değil',
+        backgroundColor: Colors.grey,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
       appBar: AppBar(
-        title: Text('👣 Adım Detayları'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(icon: Icon(Icons.analytics), text: 'İstatistik'),
-            Tab(icon: Icon(Icons.map), text: 'GPS Takip'),
-            Tab(icon: Icon(Icons.history), text: 'Geçmiş'),
+        title: Row(
+          children: [
+            Icon(
+              Icons.directions_walk_rounded,
+              color: AppColors.primaryGreen,
+              size: 28,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Adım Detayları',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildStatsTab(),
-          _buildGPSTab(),
-          _buildHistoryTab(),
-        ],
-      ),
-    );
-  }
+      body: Consumer2<NativeStepCounterService, AdvancedStepCounterService>(
+        builder: (context, nativeService, advancedService, child) {
+          final stepData = _getStepData(context);
+          
+          // Hesaplamalar - hangi servisten gelirse gelsin aynı formül
+          final distanceKm = (stepData.steps * 0.75) / 1000;
+          final avgSpeed = stepData.isWalking ? 4.5 : 0.0;
+          final caloriesBurned = (stepData.steps * 0.04).round();
+          
+          const stepGoal = 8000;
+          final progress = (stepData.steps / stepGoal).clamp(0.0, 1.0);
 
-  Widget _buildStatsTab() {
-    return Consumer<AdvancedStepCounterService>(
-      builder: (context, stepService, child) {
-        return SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Bugünkü adımlar
-              _buildStatCard(
-                title: 'Bugünkü Adımlar',
-                value: '${stepService.todaySteps}',
-                subtitle: 'Hedef: 10,000',
-                icon: Icons.directions_walk,
-                color: AppColors.primaryGreen,
-                progress: (stepService.todaySteps / 10000).clamp(0.0, 1.0),
-              ),
-              
-              SizedBox(height: 16),
-              
-              // Tahmini mesafe
-              _buildStatCard(
-                title: 'Tahmini Mesafe',
-                value: '${(stepService.todaySteps * 0.0008).toStringAsFixed(2)} km',
-                subtitle: 'Ortalama adım boyu: 80cm',
-                icon: Icons.straighten,
-                color: Colors.blue,
-              ),
-              
-              SizedBox(height: 16),
-              
-              // Tahmini kalori
-              _buildStatCard(
-                title: 'Yakılan Kalori',
-                value: '${(stepService.todaySteps * 0.04).toInt()} kal',
-                subtitle: 'Adım başına ~0.04 kalori',
-                icon: Icons.local_fire_department,
-                color: Colors.orange,
-              ),
-              
-              SizedBox(height: 16),
-              
-              // Aktif dakika
-              _buildStatCard(
-                title: 'Aktif Dakika',
-                value: '${(stepService.todaySteps / 100).toInt()} dk',
-                subtitle: '100 adım = ~1 dakika',
-                icon: Icons.timer,
-                color: Colors.purple,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGPSTab() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // GPS Tracking Control
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                // Sistem durumu kartı
+                _buildSystemStatusCard(stepData, isDark),
+                
+                const SizedBox(height: 20),
+                
+                // Ana Adım Sayar Halka
+                AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: stepData.isWalking ? _pulseAnimation.value : 1.0,
+                      child: Container(
+                        width: 280,
+                        height: 280,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: stepData.backgroundColor.withOpacity(0.2),
+                              blurRadius: 30,
+                              spreadRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Arkaplan halka
+                            SizedBox(
+                              width: 280,
+                              height: 280,
+                              child: CustomPaint(
+                                painter: StepRingPainter(
+                                  progress: 1.0,
+                                  color: isDark 
+                                      ? Colors.grey[800]! 
+                                      : Colors.grey[300]!,
+                                  strokeWidth: 12,
+                                ),
+                              ),
+                            ),
+                            
+                            // İlerleme halka
+                            AnimatedBuilder(
+                              animation: _ringAnimation,
+                              builder: (context, child) {
+                                return SizedBox(
+                                  width: 280,
+                                  height: 280,
+                                  child: CustomPaint(
+                                    painter: StepRingPainter(
+                                      progress: progress * _ringAnimation.value,
+                                      color: stepData.backgroundColor,
+                                      strokeWidth: 12,
+                                      showGlow: true,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            
+                            // Merkez içerik
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Adım sayısı
+                                Text(
+                                  stepData.steps.toString(),
+                                  style: TextStyle(
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 4),
+                                
+                                // Adım yazısı
+                                Text(
+                                  'ADIM',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 2,
+                                    color: stepData.backgroundColor,
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 8),
+                                
+                                // Hedef bilgisi
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: stepData.backgroundColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${stepGoal} hedef',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: stepData.backgroundColor,
+                                    ),
+                                  ),
+                                ),
+                                
+                                const SizedBox(height: 12),
+                                
+                                // Yürüme durumu
+                                if (stepData.isWalking)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.orange.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6,
+                                          height: 6,
+                                          decoration: const BoxDecoration(
+                                            color: Colors.orange,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Text(
+                                          'Yürüyor',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.orange,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 40),
+                
+                // İstatistik kartları
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Üst sıra
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              icon: Icons.map_outlined,
+                              title: 'Mesafe',
+                              value: '${distanceKm.toStringAsFixed(2)} km',
+                              color: Colors.blue,
+                              isDark: isDark,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              icon: Icons.speed_rounded,
+                              title: 'Ortalama Hız',
+                              value: '${avgSpeed.toStringAsFixed(1)} km/h',
+                              color: Colors.purple,
+                              isDark: isDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Alt sıra
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              icon: Icons.local_fire_department_rounded,
+                              title: 'Kalori',
+                              value: '$caloriesBurned kcal',
+                              color: Colors.orange,
+                              isDark: isDark,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              icon: Icons.trending_up_rounded,
+                              title: 'İlerleme',
+                              value: '${(progress * 100).toInt()}%',
+                              color: stepData.backgroundColor,
+                              isDark: isDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // Motivasyon mesajı
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        stepData.backgroundColor.withOpacity(0.1),
+                        stepData.backgroundColor.withOpacity(0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: stepData.backgroundColor.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Column(
                     children: [
                       Icon(
-                        _isTracking ? Icons.gps_fixed : Icons.gps_not_fixed,
-                        color: _isTracking ? Colors.green : Colors.grey,
-                        size: 32,
+                        _getMotivationIcon(progress),
+                        color: stepData.backgroundColor,
+                        size: 28,
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(height: 8),
                       Text(
-                        _isTracking ? 'GPS Takip Aktif' : 'GPS Takip Durduruldu',
+                        _getMotivationMessage(progress, stepData.steps, stepGoal),
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _isTracking ? Colors.green : Colors.grey,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
-                  ),
-                  
-                  SizedBox(height: 16),
-                  
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isTracking ? null : _startTracking,
-                          icon: Icon(Icons.play_arrow),
-                          label: Text('Başla'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isTracking ? _stopTracking : null,
-                          icon: Icon(Icons.stop),
-                          label: Text('Durdur'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          SizedBox(height: 16),
-          
-          // GPS Stats
-          if (_isTracking || _routePoints.isNotEmpty) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Mesafe',
-                    '${(_totalDistance / 1000).toStringAsFixed(2)} km',
-                    Icons.straighten,
-                    Colors.blue,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Süre',
-                    _formatDuration(_trackingDuration),
-                    Icons.timer,
-                    Colors.orange,
                   ),
                 ),
               ],
             ),
-            
-            SizedBox(height: 8),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Hız',
-                    '${(_currentSpeed * 3.6).toStringAsFixed(1)} km/h',
-                    Icons.speed,
-                    Colors.green,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Ort. Hız',
-                    '${(_averageSpeed * 3.6).toStringAsFixed(1)} km/h',
-                    Icons.trending_up,
-                    Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: 8),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Max Hız',
-                    '${(_maxSpeed * 3.6).toStringAsFixed(1)} km/h',
-                    Icons.flash_on,
-                    Colors.red,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildGPSStatCard(
-                    'Kalori',
-                    '${_calories.toInt()} kal',
-                    Icons.local_fire_department,
-                    Colors.deepOrange,
-                  ),
-                ),
-              ],
-            ),
-          ],
-          
-          SizedBox(height: 16),
-          
-          // Route Info
-          if (_routePoints.isNotEmpty) ...[
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '🗺️ Rota Bilgileri',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 12),
-                    Text('📍 Toplam Nokta: ${_routePoints.length}'),
-                    if (_routePoints.length >= 2) ...[
-                      Text('🎯 Başlangıç: ${_routePoints.first.latitude.toStringAsFixed(6)}, ${_routePoints.first.longitude.toStringAsFixed(6)}'),
-                      Text('🏁 Son Nokta: ${_routePoints.last.latitude.toStringAsFixed(6)}, ${_routePoints.last.longitude.toStringAsFixed(6)}'),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHistoryTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  // Sistem durumu kartı
+  Widget _buildSystemStatusCard(StepData stepData, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: stepData.backgroundColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: stepData.backgroundColor.withOpacity(0.3)),
+      ),
+      child: Row(
         children: [
-          Icon(Icons.history, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'Geçmiş Aktiviteler',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+          Icon(
+            stepData.systemType.contains('Native') 
+                ? Icons.sensors_rounded 
+                : Icons.phone_android_rounded,
+            color: stepData.backgroundColor,
+            size: 20,
           ),
-          SizedBox(height: 8),
-          Text(
-            'Yakında eklenecek...',
-            style: TextStyle(color: Colors.grey),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  stepData.systemType,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Text(
+                  stepData.accuracy,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: stepData.backgroundColor,
+                  ),
+                ),
+              ],
+            ),
           ),
+          if (stepData.systemType.contains('Native'))
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'PRO',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard({
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
     required String title,
     required String value,
-    required String subtitle,
-    required IconData icon,
     required Color color,
-    double? progress,
+    required bool isDark,
   }) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: color.withOpacity(0.2),
-                  child: Icon(icon, color: color),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (progress != null) ...[
-              SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: progress,
-                backgroundColor: Colors.grey.withOpacity(0.3),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '${(progress * 100).toInt()}% tamamlandı',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.2),
         ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildGPSStatCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  IconData _getMotivationIcon(double progress) {
+    if (progress >= 1.0) return Icons.emoji_events_rounded;
+    if (progress >= 0.75) return Icons.trending_up_rounded;
+    if (progress >= 0.5) return Icons.directions_walk_rounded;
+    return Icons.rocket_launch_rounded;
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    
-    if (duration.inHours > 0) {
-      return '$hours:$minutes:$seconds';
+  String _getMotivationMessage(double progress, int steps, int goal) {
+    if (progress >= 1.0) {
+      return 'Tebrikler! Günlük hedefinizi tamamladınız! 🎉';
+    } else if (progress >= 0.75) {
+      return 'Harika gidiyorsunuz! Hedefe çok yakınsınız! 💪';
+    } else if (progress >= 0.5) {
+      return 'İyi tempo! Yarı yolu geçtiniz! 🚀';
+    } else if (steps > 0) {
+      return 'Güzel başlangıç! Devam edin! ⭐';
     } else {
-      return '$minutes:$seconds';
+      return 'Hadi başlayalım! İlk adımı atın! 🌟';
     }
   }
+}
+
+// Veri modeli
+class StepData {
+  final int steps;
+  final bool isWalking;
+  final String systemType;
+  final String accuracy;
+  final Color backgroundColor;
+
+  StepData({
+    required this.steps,
+    required this.isWalking,
+    required this.systemType,
+    required this.accuracy,
+    required this.backgroundColor,
+  });
+}
+
+// Özel halka çizer
+class StepRingPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+  final bool showGlow;
+
+  StepRingPainter({
+    required this.progress,
+    required this.color,
+    this.strokeWidth = 8.0,
+    this.showGlow = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Glow efekti
+    if (showGlow && progress > 0) {
+      final glowPaint = Paint()
+        ..color = color.withOpacity(0.3)
+        ..strokeWidth = strokeWidth + 4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * progress,
+        false,
+        glowPaint,
+      );
+    }
+
+    // Ana halka
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      2 * math.pi * progress,
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

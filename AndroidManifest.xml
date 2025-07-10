@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
-    <!-- YENİ İZİNLER EKLENDI -->
+    <!-- MEVCUT İZİNLER -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -10,10 +10,19 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Mevcut izinlerinizin yanına ekleyin -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    
+    <!-- YENİ EKLENDİ: Native Step Counter için Hardware Requirements -->
+    <uses-feature 
+        android:name="android.hardware.sensor.stepcounter" 
+        android:required="false" />
+    <uses-feature 
+        android:name="android.hardware.sensor.stepdetector" 
+        android:required="false" />
+    
+    <!-- YENİ EKLENDİ: Minimum API Level -->
+    <uses-sdk android:minSdkVersion="19" />
+
     <application
         android:label="FormdaKal"
         android:name="${applicationName}"
@@ -38,7 +47,27 @@
             </intent-filter>
         </activity>
         
-        <!-- YENİ: Bildirim Receiver -->
+        <!-- YENİ EKLENDİ: Native Step Counter Background Service -->
+        <service
+            android:name=".StepCounterService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+        
+        <!-- YENİ EKLENDİ: Boot Receiver - Telefon açıldığında servisi başlat -->
+        <receiver 
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+        
+        <!-- MEVCUT: Bildirim Receiver'ları -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

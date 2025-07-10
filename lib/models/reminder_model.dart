@@ -1,6 +1,6 @@
-// lib/models/reminder_model.dart - VİTAMİN EKLİ
-import 'package:uuid/uuid.dart';
-import 'package:flutter/material.dart';
+// lib/models/reminder_model.dart
+import 'package:uuid/uuid.dart'; // uuid paketi için
+import 'package:flutter/material.dart'; // IconData için
 
 enum ReminderType {
   sport,
@@ -16,25 +16,7 @@ enum RepeatInterval {
   weekly,
   monthly,
   yearly,
-  custom,
-}
-
-// YENİ: Vitamin türleri
-enum VitaminType {
-  vitaminD,
-  vitaminC,
-  vitaminB12,
-  vitaminB6,
-  omega3,
-  protein,
-  creatine,
-  bcaa,
-  magnesium,
-  zinc,
-  iron,
-  calcium,
-  multivitamin,
-  custom,
+  custom, // Örneğin, belirli günler
 }
 
 class Reminder {
@@ -42,15 +24,11 @@ class Reminder {
   String title;
   String? description;
   ReminderType type;
-  DateTime reminderDateTime;
+  DateTime reminderDateTime; // Hatırlatma tarihi ve saati
   bool isActive;
   RepeatInterval repeatInterval;
-  List<int>? customRepeatDays;
-  int earlyNotificationMinutes;
-  
-  // YENİ: Vitamin özellikleri
-  VitaminType? vitaminType;
-  bool? vitaminWithFood; // Yemekle birlikte alınacak mı?
+  List<int>? customRepeatDays; // Haftanın günleri (1-7, Pazartesi-Pazar)
+  int earlyNotificationMinutes; // Kaç dakika erken hatırlatılacak
 
   Reminder({
     String? id,
@@ -61,11 +39,10 @@ class Reminder {
     this.isActive = true,
     this.repeatInterval = RepeatInterval.none,
     this.customRepeatDays,
-    this.earlyNotificationMinutes = 0,
-    this.vitaminType,
-    this.vitaminWithFood,
-  }) : id = id ?? const Uuid().v4();
+    this.earlyNotificationMinutes = 0, // Varsayılan olarak erken bildirim yok
+  }) : id = id ?? const Uuid().v4(); // Eğer id verilmezse yeni bir UUID oluştur
 
+  // JSON'dan Reminder nesnesi oluşturmak için fabrika metodu
   factory Reminder.fromJson(Map<String, dynamic> json) {
     return Reminder(
       id: json['id'],
@@ -77,13 +54,10 @@ class Reminder {
       repeatInterval: RepeatInterval.values.firstWhere((e) => e.toString() == json['repeatInterval']),
       customRepeatDays: (json['customRepeatDays'] as List?)?.map((e) => e as int).toList(),
       earlyNotificationMinutes: json['earlyNotificationMinutes'] ?? 0,
-      vitaminType: json['vitaminType'] != null 
-          ? VitaminType.values.firstWhere((e) => e.toString() == json['vitaminType'])
-          : null,
-      vitaminWithFood: json['vitaminWithFood'],
     );
   }
 
+  // Reminder nesnesini JSON'a dönüştürmek için metot
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -95,11 +69,10 @@ class Reminder {
       'repeatInterval': repeatInterval.toString(),
       'customRepeatDays': customRepeatDays,
       'earlyNotificationMinutes': earlyNotificationMinutes,
-      'vitaminType': vitaminType?.toString(),
-      'vitaminWithFood': vitaminWithFood,
     };
   }
 
+  // Hatırlatma türüne göre ikon döndüren yardımcı metot
   IconData get icon {
     switch (type) {
       case ReminderType.sport:
@@ -108,68 +81,10 @@ class Reminder {
         return Icons.water_drop;
       case ReminderType.medication:
         return Icons.medical_services;
-      case ReminderType.vitamin:
-        return Icons.medication_liquid; // YENİ İKON
+      case ReminderType.vitamin: // YENİ EKLENDİ
+        return Icons.medication_liquid;
       case ReminderType.general:
         return Icons.task;
-    }
-  }
-  
-  // YENİ: Vitamin türü adları
-  static String getVitaminTypeName(VitaminType type) {
-    switch (type) {
-      case VitaminType.vitaminD:
-        return 'Vitamin D';
-      case VitaminType.vitaminC:
-        return 'Vitamin C';
-      case VitaminType.vitaminB12:
-        return 'Vitamin B12';
-      case VitaminType.vitaminB6:
-        return 'Vitamin B6';
-      case VitaminType.omega3:
-        return 'Omega-3';
-      case VitaminType.protein:
-        return 'Protein Tozu';
-      case VitaminType.creatine:
-        return 'Kreatin';
-      case VitaminType.bcaa:
-        return 'BCAA';
-      case VitaminType.magnesium:
-        return 'Magnezyum';
-      case VitaminType.zinc:
-        return 'Çinko';
-      case VitaminType.iron:
-        return 'Demir';
-      case VitaminType.calcium:
-        return 'Kalsiyum';
-      case VitaminType.multivitamin:
-        return 'Multivitamin';
-      case VitaminType.custom:
-        return 'Özel Vitamin';
-    }
-  }
-  
-  // YENİ: Vitamin önerisi metni
-  static String getVitaminDescription(VitaminType type) {
-    switch (type) {
-      case VitaminType.vitaminD:
-        return 'Kemik sağlığı ve bağışıklık sistemi için';
-      case VitaminType.vitaminC:
-        return 'Bağışıklık sistemi ve antioksidan';
-      case VitaminType.vitaminB12:
-        return 'Enerji metabolizması ve sinir sistemi';
-      case VitaminType.omega3:
-        return 'Kalp sağlığı ve beyin fonksiyonları';
-      case VitaminType.protein:
-        return 'Kas gelişimi ve onarımı için';
-      case VitaminType.creatine:
-        return 'Kas gücü ve performans artışı';
-      case VitaminType.bcaa:
-        return 'Antrenman öncesi ve sonrası kas desteği';
-      case VitaminType.magnesium:
-        return 'Kas fonksiyonu ve uyku kalitesi';
-      default:
-        return 'Genel sağlık desteği için';
     }
   }
 }
