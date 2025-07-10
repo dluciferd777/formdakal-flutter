@@ -1,4 +1,4 @@
-// lib/screens/home_screen.dart - DÜZELTILMIŞ VERSİYON
+// lib/screens/home_screen.dart - SAMSUNG HEALTH TARZINDA DÜZELTILMIŞ VERSİYON
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -158,10 +158,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         SliverToBoxAdapter(
                           child: Column(
                             children: [
-                              // Advanced Step Counter Card
+                              // Samsung Health Tarzı Step Counter Card
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: _buildAdvancedStepCounterCard(isDarkMode),
+                                child: _buildAdvancedStepCounterCard(isDarkMode, exerciseProvider),
                               ),
                               const SizedBox(height: 7),
                               Padding(
@@ -245,21 +245,28 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildAdvancedStepCounterCard(bool isDarkMode) {
+  Widget _buildAdvancedStepCounterCard(bool isDarkMode, ExerciseProvider exerciseProvider) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         final user = userProvider.user;
         final stepGoal = user?.dailyStepGoal ?? 6000;
+        final activeMinutes = exerciseProvider.getDailyExerciseMinutes(DateTime.now());
         
         return ListenableBuilder(
           listenable: _stepCounter,
           builder: (context, child) {
             final todaySteps = _stepCounter.todaySteps;
-            final isWalking = _stepCounter.isWalking;
-            final progress = (todaySteps / stepGoal).clamp(0.0, 1.0);
+            final burnedCalories = _stepCounter.getCaloriesFromSteps();
+            
+            // Progress yüzdeleri
+            final stepProgress = (todaySteps / stepGoal).clamp(0.0, 1.0);
+            final minuteProgress = (activeMinutes / 90).clamp(0.0, 1.0); // 90 dk hedef
+            final calorieProgress = (burnedCalories / 500).clamp(0.0, 1.0); // 500 kal hedef
             
             return GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/step_details'),
+              onTap: () {
+                Navigator.pushNamed(context, '/step_details');
+              },
               child: Card(
                 elevation: 2,
                 margin: EdgeInsets.zero,
@@ -267,120 +274,197 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Container(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
+                  height: 120,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        isDarkMode
+                            ? const Color(0xFF2C2C2E)
+                            : Colors.white,
+                        isDarkMode
+                            ? const Color(0xFF1C1C1E)
+                            : Colors.grey.shade50,
+                      ],
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 50, 
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: AppColors.stepColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
+                      // Sol taraf - İstatistikler
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            // Adım
+                            _buildStatRow(
+                              Icons.directions_walk,
+                              Colors.purple,
+                              '$todaySteps',
+                              'adım',
+                              '/$stepGoal',
+                              isDarkMode,
                             ),
-                            child: Icon(
-                              isWalking ? Icons.directions_walk : Icons.accessibility_new, 
-                              color: AppColors.stepColor, 
-                              size: 28
+                            // Dakika
+                            _buildStatRow(
+                              Icons.timer,
+                              Colors.blue,
+                              '$activeMinutes',
+                              'dak',
+                              '/90 dak',
+                              isDarkMode,
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            // Kalori
+                            _buildStatRow(
+                              Icons.local_fire_department,
+                              Colors.red.shade400,
+                              '$burnedCalories',
+                              'kal',
+                              '/500 kal',
+                              isDarkMode,
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      // Sağ taraf - Çok renkli halkalar
+                      Expanded(
+                        flex: 1,
+                        child: Center(
+                          child: SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: Stack(
+                              alignment: Alignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Günlük Adımlar', 
-                                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w600
-                                      )
-                                    ),
-                                    if (isWalking) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.stepColor.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Text(
-                                          'Yürüyor',
-                                          style: TextStyle(
-                                            color: AppColors.stepColor,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                                // Dış halka - Adım (Mor)
+                                SizedBox(
+                                  width: 80,
+                                  height: 80,
+                                  child: CircularProgressIndicator(
+                                    value: stepProgress,
+                                    strokeWidth: 6,
+                                    backgroundColor: Colors.purple.withOpacity(0.2),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.purple),
+                                    strokeCap: StrokeCap.round,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Hedef: $stepGoal adım', 
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context).textTheme.bodySmall?.color
-                                  )
+                                // Orta halka - Dakika (Mavi)
+                                SizedBox(
+                                  width: 65,
+                                  height: 65,
+                                  child: CircularProgressIndicator(
+                                    value: minuteProgress,
+                                    strokeWidth: 5,
+                                    backgroundColor: Colors.blue.withOpacity(0.2),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                                    strokeCap: StrokeCap.round,
+                                  ),
+                                ),
+                                // İç halka - Kalori (Kırmızı)
+                                SizedBox(
+                                  width: 50,
+                                  height: 50,
+                                  child: CircularProgressIndicator(
+                                    value: calorieProgress,
+                                    strokeWidth: 4,
+                                    backgroundColor: Colors.red.shade400.withOpacity(0.2),
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red.shade400),
+                                    strokeCap: StrokeCap.round,
+                                  ),
+                                ),
+                                // Ortadaki servis durumu göstergesi
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: _stepCounter.isServiceActive
+                                        ? AppColors.primaryGreen
+                                        : Colors.grey.shade400,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                todaySteps.toString(), 
-                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold, 
-                                  color: AppColors.stepColor
-                                )
-                              ),
-                              Text(
-                                'adım', 
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).textTheme.bodySmall?.color
-                                )
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: Colors.grey.withOpacity(0.2),
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.stepColor),
-                        minHeight: 6,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${(progress * 100).toInt()}% tamamlandı',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
-                          ),
-                          Text(
-                            '${stepGoal - todaySteps > 0 ? stepGoal - todaySteps : 0} kaldı',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            );
+                ), // Container
+              ), // Card
+            ); // GestureDetector
           },
         );
       },
+    );
+  }
+
+  Widget _buildStatRow(
+    IconData icon,
+    Color color,
+    String value,
+    String unit,
+    String goal,
+    bool isDark,
+  ) {
+    return Row(
+      children: [
+        // İkon
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 14,
+          ),
+        ),
+        const SizedBox(width: 12),
+        
+        // Değer ve birim
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                unit,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                goal,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.white54 : Colors.black38,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

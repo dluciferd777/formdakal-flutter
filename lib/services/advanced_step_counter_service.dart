@@ -1,29 +1,38 @@
-// lib/services/advanced_step_counter_service.dart
+// lib/services/advanced_step_counter_service.dart - ARKA PLAN DESTEKLİ VERSİYON
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:pedometer/pedometer.dart';
 
 class AdvancedStepCounterService extends ChangeNotifier {
   static final AdvancedStepCounterService _instance = AdvancedStepCounterService._internal();
   factory AdvancedStepCounterService() => _instance;
   AdvancedStepCounterService._internal();
 
-  // Sensör subscription'ları
+  // Sensör subscription'ları - ASLA KAPANMAZ
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  StreamSubscription<StepCount>? _pedometerSubscription;
+  StreamSubscription<PedestrianStatus>? _pedestrianSubscription;
   
   // Adım sayma değişkenleri
   int _todaySteps = 0;
   int _totalSteps = 0;
+  int _baseStepCount = 0;        // Gün başındaki step count (pedometer için)
   bool _isWalking = false;
   bool _isServiceActive = false;
   
   // Algoritma parametreleri
-  static const double _accelerationThreshold = 0.1; // Minimum ivme eşiği
-  static const double _timeThreshold = 0.25; // Minimum adım arası süre (saniye)
-  static const int _windowSize = 10; // Hareketli ortalama penceresi
+  static const double _accelerationThreshold = 0.1;
+  static const double _timeThreshold = 0.25;
+  static const int _windowSize = 10;
+  
+  // Hibrit sistem değişkenleri
+  bool _isPedometerAvailable = false;
+  bool _useBackgroundMode = true;        // ARKA PLAN MODU
   
   // Filtreleme için veri yapıları
   final List<double> _accelerationData = [];
@@ -35,7 +44,7 @@ class AdvancedStepCounterService extends ChangeNotifier {
   // Sahte adım tespiti için
   int _consecutiveQuickSteps = 0;
   static const int _maxConsecutiveQuickSteps = 5;
-  static const double _naturalStepFrequency = 2.5; // Hz
+  static const double _naturalStepFrequency = 2.5;
   
   // Getter'lar
   int get todaySteps => _todaySteps;
@@ -52,40 +61,171 @@ class AdvancedStepCounterService extends ChangeNotifier {
       // Kaydedilmiş verileri yükle
       await _loadSavedData();
       
-      // Accelerometer kullan
-      await _initializeAccelerometer();
+      // ARKA PLAN İÇİN: Uygulama lifecycle'ına bağla
+      _setupBackgroundHandling();
+      
+      // ARKA PLAN MODu: Önce native pedometer'ı dene
+      await _initializePedometer();
+      
+      // Eğer pedometer yoksa accelerometer kullan
+      if (!_isPedometerAvailable) {
+        await _initializeAccelerometer();
+      }
       
       _isServiceActive = true;
       notifyListeners();
       
-      if (kDebugMode) {
-        debugPrint('✅ Gelişmiş Adım Sayar başlatıldı');
-      }
+      print('✅ Gelişmiş Adım Sayar başlatıldı - Pedometer: $_isPedometerAvailable, Arka Plan: $_useBackgroundMode');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Adım sayar başlatma hatası: $e');
-      }
+      print('❌ Adım sayar başlatma hatası: $e');
     }
   }
 
-  // Accelerometer tabanlı adım sayma
+  // ARKA PLAN HANDLING
+  void _setupBackgroundHandling() {
+    // App lifecycle değişikliklerini dinle
+    SystemChannels.lifecycle.setMessageHandler((msg) async {
+      switch (msg) {
+        case 'AppLifecycleState.paused':
+          // Uygulama arka planda - sensörleri DEVAM ETTİR
+          print('📱 Uygulama arka planda - Adım sayar çalışmaya devam ediyor');
+          _saveData(); // Veriyi kaydet
+          break;
+          
+        case 'AppLifecycleState.resumed':
+          // Uygulama öne geldi - verileri güncelle
+          print('📱 Uygulama öne geldi - Veriler güncelleniyor');
+          await _loadSavedData();
+          notifyListeners();
+          break;
+          
+        case 'AppLifecycleState.detached':
+          // Uygulama kapanıyor - SON KAYDETME
+          print('📱 Uygulama kapanıyor - Son veri kaydediliyor');
+          _saveData();
+          break;
+      }
+      return null;
+    });
+  }
+
+  // Pedometer'ı başlat (Android native sensor - ARKA PLANDA ÇALIŞIR)
+  Future<void> _initializePedometer() async {
+    try {
+      // Pedometer status stream'ini test et
+      final pedestrianStream = Pedometer.pedestrianStatusStream;
+      final stepStream = Pedometer.stepCountStream;
+      
+      // Status subscription - ASLA CANCEL ETME
+      _pedestrianSubscription = pedestrianStream.listen(
+        (PedestrianStatus event) {
+          _isWalking = event.status == 'walking';
+          notifyListeners();
+        },
+        onError: (error) {
+          print('⚠️ Pedestrian status hatası: $error');
+          _switchToAccelerometer();
+        },
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
+      
+      // Step count subscription - ASLA CANCEL ETME  
+      _pedometerSubscription = stepStream.listen(
+        (StepCount event) {
+          _handlePedometerSteps(event.steps);
+        },
+        onError: (error) {
+          print('⚠️ Pedometer step hatası: $error');
+          _switchToAccelerometer();
+        },
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
+      
+      _isPedometerAvailable = true;
+      print('✅ Pedometer aktif (Arka plan destekli)');
+      
+    } catch (e) {
+      print('❌ Pedometer başlatılamadı: $e');
+      _isPedometerAvailable = false;
+    }
+  }
+
+  // Accelerometer tabanlı adım sayma (Fallback)
   Future<void> _initializeAccelerometer() async {
     try {
       _accelerometerSubscription = accelerometerEventStream(
-        samplingPeriod: const Duration(milliseconds: 50), // 20Hz
-      ).listen(_processAccelerometerData);
+        samplingPeriod: const Duration(milliseconds: 200), // Daha az sıklık - batarya için
+      ).listen(
+        _processAccelerometerData,
+        cancelOnError: false,  // Hata durumunda cancel etme
+      );
       
-      if (kDebugMode) {
-        debugPrint('✅ Accelerometer tabanlı adım sayma aktif');
-      }
+      print('✅ Accelerometer tabanlı adım sayma aktif (Fallback mode)');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Accelerometer başlatılamadı: $e');
-      }
+      print('❌ Accelerometer başlatılamadı: $e');
     }
   }
 
-  // Accelerometer verilerini işle (Gelişmiş algoritma)
+  // Pedometer verilerini işle (Android native step counter)
+  void _handlePedometerSteps(int totalStepsSinceBoot) {
+    // İlk başlatmada veya yeni gün başlangıcında base değeri ayarla
+    if (_baseStepCount == 0 || _isNewDay()) {
+      _baseStepCount = totalStepsSinceBoot;
+      _resetDailyStepsIfNewDay();
+    }
+    
+    // Telefon yeniden başladıysa (step count düştüyse)
+    if (totalStepsSinceBoot < _baseStepCount) {
+      _baseStepCount = 0;
+    }
+    
+    // Bugünkü adımları hesapla
+    final newDailySteps = totalStepsSinceBoot - _baseStepCount;
+    
+    if (newDailySteps != _todaySteps && newDailySteps >= 0) {
+      _todaySteps = newDailySteps;
+      _totalSteps = totalStepsSinceBoot;
+      _saveData();
+      notifyListeners();
+      
+      print('👣 Pedometer: Günlük=$_todaySteps, Toplam=$_totalSteps');
+    }
+  }
+
+  // Yeni gün kontrolü
+  bool _isNewDay() {
+    final now = DateTime.now();
+    final prefs = SharedPreferences.getInstance();
+    
+    return prefs.then((p) {
+      final lastDate = p.getString('last_step_date') ?? '';
+      final todayStr = '${now.year}-${now.month}-${now.day}';
+      
+      if (lastDate != todayStr) {
+        p.setString('last_step_date', todayStr);
+        return true;
+      }
+      return false;
+    }) as bool;
+  }
+
+  // Yeni gün başlangıcında günlük adımları sıfırla
+  void _resetDailyStepsIfNewDay() {
+    final now = DateTime.now();
+    SharedPreferences.getInstance().then((prefs) {
+      final lastResetDate = prefs.getString('last_reset_date') ?? '';
+      final todayStr = '${now.year}-${now.month}-${now.day}';
+      
+      if (lastResetDate != todayStr) {
+        // Yeni gün - günlük adımları sıfırla
+        _todaySteps = 0;
+        prefs.setString('last_reset_date', todayStr);
+        print('🌅 Yeni gün başladı - Günlük adımlar sıfırlandı');
+      }
+    });
+  }
+
+  // Accelerometer verilerini işle (Gelişmiş algoritma - fallback)
   void _processAccelerometerData(AccelerometerEvent event) {
     final magnitude = _calculateMagnitude(event.x, event.y, event.z);
     final now = DateTime.now();
@@ -104,28 +244,23 @@ class AdvancedStepCounterService extends ChangeNotifier {
     _lastMagnitude = magnitude;
   }
 
-  // Adım pattern analizi
+  // Adım pattern analizi (aynı)
   void _analyzeStepPattern(double magnitude, DateTime now) {
-    // Hareketli ortalama hesapla
     final average = _accelerationData.reduce((a, b) => a + b) / _accelerationData.length;
     
-    // Peak detection (tepe noktası tespiti)
     final isAboveThreshold = magnitude > (average + _accelerationThreshold);
     final isBelowThreshold = _lastMagnitude > (average + _accelerationThreshold) && 
                             magnitude <= (average + _accelerationThreshold);
     
-    // Adım tespiti: Tepe noktasından düşüş
     if (isBelowThreshold && !_isPeakDetected) {
       _isPeakDetected = true;
       
-      // Zaman kontrolü: Çok hızlı adımları filtrele
       if (_lastStepTime != null) {
         final timeDiff = now.difference(_lastStepTime!).inMilliseconds / 1000.0;
         
         if (timeDiff < _timeThreshold) {
           _consecutiveQuickSteps++;
           
-          // Çok fazla hızlı adım varsa sahte kabul et
           if (_consecutiveQuickSteps > _maxConsecutiveQuickSteps) {
             _isPeakDetected = false;
             return;
@@ -134,8 +269,7 @@ class AdvancedStepCounterService extends ChangeNotifier {
           _consecutiveQuickSteps = 0;
         }
         
-        // Doğal yürüme frekansı kontrolü
-        if (timeDiff > (1.0 / _naturalStepFrequency) * 0.5) { // Minimum doğal süre
+        if (timeDiff > (1.0 / _naturalStepFrequency) * 0.5) {
           _registerStep(now);
         }
       } else {
@@ -145,18 +279,16 @@ class AdvancedStepCounterService extends ChangeNotifier {
       _isPeakDetected = false;
     }
     
-    // Yürüme durumu analizi
     _analyzeWalkingStatus(average);
   }
 
-  // Adım kaydet
+  // Adım kaydet (accelerometer için)
   void _registerStep(DateTime now) {
     _todaySteps++;
     _totalSteps++;
     _lastStepTime = now;
     _stepTimeStamps.add(now);
     
-    // Son 10 adımı tut
     if (_stepTimeStamps.length > 10) {
       _stepTimeStamps.removeAt(0);
     }
@@ -164,9 +296,7 @@ class AdvancedStepCounterService extends ChangeNotifier {
     _saveData();
     notifyListeners();
     
-    if (kDebugMode) {
-      debugPrint('👣 Adım tespit edildi: $_todaySteps');
-    }
+    print('👣 Accelerometer: Adım tespit edildi: $_todaySteps');
   }
 
   // Yürüme durumu analizi
@@ -187,6 +317,18 @@ class AdvancedStepCounterService extends ChangeNotifier {
     }
   }
 
+  // Accelerometer'a geç
+  void _switchToAccelerometer() {
+    if (!_isPedometerAvailable) return;
+    
+    _isPedometerAvailable = false;
+    _pedometerSubscription?.cancel();
+    _pedestrianSubscription?.cancel();
+    
+    _initializeAccelerometer();
+    print('🔄 Pedometer hatası - Accelerometer\'a geçildi');
+  }
+
   // Vector magnitude hesapla
   double _calculateMagnitude(double x, double y, double z) {
     return sqrt(x * x + y * y + z * z);
@@ -200,14 +342,13 @@ class AdvancedStepCounterService extends ChangeNotifier {
     }
   }
 
-  // Günlük adımları sıfırla
+  // Günlük adımları manuel sıfırla
   void resetDailySteps() {
     _todaySteps = 0;
+    _baseStepCount = _totalSteps; // Mevcut total'ı base olarak ayarla
     _saveData();
     notifyListeners();
-    if (kDebugMode) {
-      debugPrint('🔄 Günlük adımlar sıfırlandı');
-    }
+    print('🔄 Günlük adımlar manuel sıfırlandı');
   }
 
   // Veriyi kaydet
@@ -219,10 +360,9 @@ class AdvancedStepCounterService extends ChangeNotifier {
       
       await prefs.setInt('daily_steps_$todayKey', _todaySteps);
       await prefs.setInt('total_steps', _totalSteps);
+      await prefs.setInt('base_step_count', _baseStepCount);
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Veri kaydetme hatası: $e');
-      }
+      print('❌ Veri kaydetme hatası: $e');
     }
   }
 
@@ -235,14 +375,11 @@ class AdvancedStepCounterService extends ChangeNotifier {
       
       _todaySteps = prefs.getInt('daily_steps_$todayKey') ?? 0;
       _totalSteps = prefs.getInt('total_steps') ?? 0;
+      _baseStepCount = prefs.getInt('base_step_count') ?? 0;
       
-      if (kDebugMode) {
-        debugPrint('📂 Kaydedilmiş veri yüklendi: Günlük=$_todaySteps, Toplam=$_totalSteps');
-      }
+      print('📂 Kaydedilmiş veri yüklendi: Günlük=$_todaySteps, Toplam=$_totalSteps');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Veri yükleme hatası: $e');
-      }
+      print('❌ Veri yükleme hatası: $e');
     }
   }
 
@@ -253,9 +390,7 @@ class AdvancedStepCounterService extends ChangeNotifier {
       final dateKey = '${date.year}-${date.month}-${date.day}';
       return prefs.getInt('daily_steps_$dateKey') ?? 0;
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('❌ Tarih için veri alma hatası: $e');
-      }
+      print('❌ Tarih için veri alma hatası: $e');
       return 0;
     }
   }
@@ -274,11 +409,22 @@ class AdvancedStepCounterService extends ChangeNotifier {
     return weeklyData;
   }
 
-  // Servisi durdur
+  // ARKA PLAN MODu: Dispose fonksiyonunu değiştir
+  @override
   void dispose() {
-    _accelerometerSubscription?.cancel();
-    _isServiceActive = false;
+    // SADECE UYGULAMA TAMAMEN KAPANIRKEN ÇAĞIR
+    // Normal arka plan geçişlerinde ÇAĞIRMA
+    print('⚠️ AdvancedStepCounterService dispose çağrıldı');
     super.dispose();
+  }
+  
+  // Manuel durdurma fonksiyonu (gerekirse)
+  void forceStop() {
+    _accelerometerSubscription?.cancel();
+    _pedometerSubscription?.cancel();
+    _pedestrianSubscription?.cancel();
+    _isServiceActive = false;
+    print('🛑 Adım sayar manuel olarak durduruldu');
   }
 
   // Test fonksiyonu
@@ -289,9 +435,23 @@ class AdvancedStepCounterService extends ChangeNotifier {
 
   // Kalibasyon fonksiyonu
   void calibrateThreshold(double newThreshold) {
-    if (kDebugMode) {
-      debugPrint('📊 Yeni eşik değeri ayarlandı: $newThreshold');
-    }
-    // SharedPreferences'a kaydet ve restart et
+    print('📊 Yeni eşik değeri ayarlandı: $newThreshold');
+  }
+
+  // Samsung Health tarzı ek özellikler
+  
+  // Kalori hesaplama
+  int getCaloriesFromSteps() {
+    return (_todaySteps * 0.06).round(); // Basit formül
+  }
+  
+  // Mesafe hesaplama
+  double getDistanceFromSteps() {
+    return _todaySteps * 0.0008; // km cinsinden, ortalama adım uzunluğu 0.8m
+  }
+  
+  // Aktif dakika hesaplama (örnek)
+  int getActiveMintes() {
+    return (_todaySteps / 100).round().clamp(0, 90); // Basit formül
   }
 }
