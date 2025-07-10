@@ -1,4 +1,4 @@
-// lib/main.dart - TAM KOD
+// lib/main.dart - ESKİ HALİNE DÖNDÜRÜLDÜ + SADECE TEK SEFERLİK İZİN
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:formdakal/models/workout_plan_model.dart';
@@ -29,6 +29,7 @@ import 'package:formdakal/screens/step_details_screen.dart';
 import 'package:formdakal/screens/workout_plan_details_screen.dart';
 import 'package:formdakal/screens/workout_plans_list_screen.dart';
 import 'package:formdakal/services/notification_service.dart';
+import 'package:formdakal/services/permission_service.dart';
 import 'package:formdakal/utils/theme.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -38,6 +39,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await NotificationService().init(); 
+  await PermissionService().init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -69,16 +71,12 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isAppPaused = false;
+  bool _permissionChecked = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    
-    // BAŞARIMLARI AKTİF ET
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _activateBasicAchievements();
-    });
   }
 
   @override
@@ -87,73 +85,50 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // BAŞARIMLARI AKTİF ETME
-  void _activateBasicAchievements() {
-    try {
-      final achievementProvider = Provider.of<AchievementProvider>(context, listen: false);
-      achievementProvider.unlockAchievement('first_login');
-      
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      if (userProvider.user != null) {
-        achievementProvider.unlockAchievement('profile_complete');
-      }
-      
-      print('✅ Temel başarımlar aktif edildi');
-    } catch (e) {
-      print('❌ Başarım aktif etme hatası: $e');
-    }
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
     switch (state) {
-      case AppLifecycleState.paused:
-        _isAppPaused = true;
-        _saveAllData();
-        print("📱 Uygulama arkaplanda - Veriler kaydedildi");
-        break;
-        
       case AppLifecycleState.resumed:
         if (_isAppPaused) {
-          _loadAllData();
           _isAppPaused = false;
-          print("📱 Uygulama öne geldi - Veriler yüklendi");
+          debugPrint("📱 Uygulama öne geldi");
+        }
+        
+        // Sadece bir kez permission kontrolü yap
+        if (!_permissionChecked) {
+          _checkPermissionsOnce();
         }
         break;
         
-      case AppLifecycleState.detached:
-        _saveAllData();
-        print("📱 Uygulama kapatılıyor - Son kaydetme");
+      case AppLifecycleState.paused:
+        _isAppPaused = true;
+        debugPrint("📱 Uygulama arka plana gitti");
         break;
         
-      case AppLifecycleState.inactive:
-        break;
-        
-      case AppLifecycleState.hidden:
-        print("📱 Uygulama gizlendi");
+      default:
         break;
     }
   }
 
-  void _saveAllData() {
+  void _checkPermissionsOnce() async {
+    if (_permissionChecked) return;
+    
     try {
-      if (mounted) {
-        print("💾 Tüm veriler kaydedildi");
+      await Future.delayed(const Duration(seconds: 3));
+      
+      if (mounted && navigatorKey.currentContext != null) {
+        _permissionChecked = true;
+        await PermissionService().requestEssentialPermissions(navigatorKey.currentContext!);
+        debugPrint('✅ Tek seferlik izin kontrolü tamamlandı');
       }
     } catch (e) {
-      print("❌ Veri kaydetme hatası: $e");
+      debugPrint('❌ Permission check error: $e');
     }
   }
 
-  void _loadAllData() {
-    try {
-      print("📂 Veriler yeniden yüklendi");
-    } catch (e) {
-      print("❌ Veri yükleme hatası: $e");
-    }
-  }
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -193,33 +168,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return MaterialApp(
             title: 'FormdaKal',
             debugShowCheckedModeBanner: false,
+            navigatorKey: navigatorKey,
             themeMode: themeProvider.themeMode,
-            theme: AppTheme.lightTheme.copyWith(
-              scaffoldBackgroundColor: Colors.white,
-              appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
-                systemOverlayStyle: const SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.dark,
-                  systemNavigationBarIconBrightness: Brightness.dark,
-                ),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-            ),
-            darkTheme: AppTheme.darkTheme.copyWith(
-              scaffoldBackgroundColor: const Color(0xFF121212),
-              appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
-                systemOverlayStyle: const SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  statusBarIconBrightness: Brightness.light,
-                  systemNavigationBarIconBrightness: Brightness.light,
-                ),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-            ),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
             home: const SplashScreen(),
             routes: {
               '/onboarding': (context) => const OnboardingScreen(),
@@ -238,22 +190,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               '/achievements': (context) => const AchievementsScreen(),
               '/step_details': (context) => const StepDetailsScreen(),
               '/daily_summary': (context) => const DailySummaryScreen(),
-            },
-            builder: (context, child) {
-              return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: Colors.transparent,
-                  systemNavigationBarDividerColor: Colors.transparent,
-                  statusBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-                      ? Brightness.light 
-                      : Brightness.dark,
-                  systemNavigationBarIconBrightness: Theme.of(context).brightness == Brightness.dark 
-                      ? Brightness.light 
-                      : Brightness.dark,
-                ),
-                child: child!,
-              );
             },
           );
         },

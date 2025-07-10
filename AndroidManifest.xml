@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
     
     <application
-        android:label="formdakal"
+        android:label="FormdaKal"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
@@ -19,7 +19,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
+            android:theme="@android:style/Theme.Black.NoTitleBar"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">

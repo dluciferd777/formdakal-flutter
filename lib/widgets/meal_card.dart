@@ -12,8 +12,6 @@ class MealCard extends StatefulWidget {
   final double totalFat;
   final List<ConsumedFood> foods;
   final VoidCallback onAddFood;
-  // HATA DÜZELTME: Fonksiyon imzaları, artık index yerine doğrudan nesne veya ID alacak şekilde güncellendi.
-  // Bu, listedeki değişikliklerden etkilenmeyen daha güvenilir bir yapı sağlar.
   final Function(ConsumedFood food) onEditFood;
   final Function(String consumedFoodId) onDeleteFood;
 
@@ -89,7 +87,7 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
       shadowColor: isDarkMode
           ? Colors.black.withOpacity(0.5)
           : Colors.grey.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // Köşe yuvarlaklığı azaltıldı
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
@@ -100,14 +98,14 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
             child: InkWell(
               onTap: _toggleExpanded,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 6, 6), // Padding azaltıldı
+                padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
                 child: Row(
                   children: [
-                    Icon(widget.icon, color: proteinColor, size: 24), // İkon boyutu küçültüldü
-                    const SizedBox(width: 10), // Boşluk azaltıldı
+                    Icon(widget.icon, color: proteinColor, size: 24),
+                    const SizedBox(width: 10),
                     Text(widget.title,
                         style: theme.textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w600, fontSize: 18)), // Yazı boyutu küçültüldü
+                            ?.copyWith(fontWeight: FontWeight.w600, fontSize: 18)),
                     const Spacer(),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -115,17 +113,19 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
                         Text(widget.totalCalories.toInt().toString(),
                             style: theme.textTheme.headlineSmall?.copyWith(
                                 color: AppColors.calorieColor,
-                                fontWeight: FontWeight.bold, fontSize: 22)), // Yazı boyutu küçültüldü
+                                fontWeight: FontWeight.bold, fontSize: 22)),
                         const Text("Kalori",
-                            style: TextStyle(color: Colors.grey, fontSize: 10)), // Yazı boyutu küçültüldü
+                            style: TextStyle(color: Colors.grey, fontSize: 10)),
                       ],
                     ),
-                    const SizedBox(width: 6), // Boşluk azaltıldı
-                    IconButton(
-                      icon: Icon(Icons.add_circle,
-                          color: proteinColor, size: 24), // İkon boyutu küçültüldü
-                      onPressed: widget.onAddFood,
-                      tooltip: 'Yemek Ekle',
+                    const SizedBox(width: 6),
+                    // + butonunu düz hale getiriyoruz (yuvarlak kaplamayı kaldırıyoruz)
+                    GestureDetector(
+                      onTap: widget.onAddFood,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(Icons.add, color: proteinColor, size: 24),
+                      ),
                     ),
                   ],
                 ),
@@ -133,7 +133,7 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8), // Padding azaltıldı
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
             child: Column(
               children: [
                 Row(
@@ -144,33 +144,33 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
                     _buildMacroInfo('Prot', widget.totalProtein, proteinColor, isDarkMode),
                   ],
                 ),
-                const SizedBox(height: 6), // Boşluk azaltıldı
+                const SizedBox(height: 6),
                 Stack(
                   children: [
                     Container(
-                        height: 4, // Yükseklik azaltıldı
+                        height: 4,
                         decoration: BoxDecoration(
                             color: Colors.grey.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4))), // Köşe yuvarlaklığı azaltıldı
+                            borderRadius: BorderRadius.circular(4))),
                     LayoutBuilder(
                       builder: (context, constraints) => Row(
                         children: [
                           Container(
                               width: constraints.maxWidth * fatRatio,
-                              height: 4, // Yükseklik azaltıldı
+                              height: 4,
                               decoration: BoxDecoration(
                                   color: fatColor,
-                                  borderRadius: BorderRadius.circular(4))), // Köşe yuvarlaklığı azaltıldı
+                                  borderRadius: BorderRadius.circular(4))),
                           Container(
                               width: constraints.maxWidth * carbsRatio,
-                              height: 4, // Yükseklik azaltıldı
+                              height: 4,
                               color: carbColor),
                           Container(
                               width: constraints.maxWidth * proteinRatio,
-                              height: 4, // Yükseklik azaltıldı
+                              height: 4,
                               decoration: BoxDecoration(
                                   color: proteinColor,
-                                  borderRadius: BorderRadius.circular(4))), // Köşe yuvarlaklığı azaltıldı
+                                  borderRadius: BorderRadius.circular(4))),
                         ],
                       ),
                     ),
@@ -187,29 +187,31 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
                   : Colors.grey.shade50,
               child: Column(
                 children: [
-                  const Divider(height: 1, indent: 12, endIndent: 12), // Divider indent/endIndent azaltıldı
+                  const Divider(height: 1, indent: 12, endIndent: 12),
                   if (widget.foods.isEmpty)
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0), // Padding azaltıldı
+                      padding: EdgeInsets.symmetric(vertical: 16.0),
                       child: Center(
-                          child: Text('Bu öğüne henüz yemek eklenmedi.', style: TextStyle(fontSize: 12))), // Yazı boyutu küçültüldü
+                          child: Text('Bu öğüne henüz yemek eklenmedi.', style: TextStyle(fontSize: 12))),
                     )
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6.0, vertical: 6.0), // Padding azaltıldı
+                          horizontal: 6.0, vertical: 6.0),
                       child: Column(
                         children: widget.foods.map((food) {
                           return ListTile(
                             dense: true,
-                            title: Text(food.foodName, style: const TextStyle(fontSize: 14)), // Yazı boyutu küçültüldü
+                            title: Text(food.foodName, style: const TextStyle(fontSize: 14)),
                             subtitle: Text(
                                 '${food.grams.toInt()} g | P: ${food.totalProtein.toInt()}g, K: ${food.totalCarbs.toInt()}g, Y: ${food.totalFat.toInt()}g',
-                                style: const TextStyle(fontSize: 11)), // Yazı boyutu küçültüldü
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete,
-                                  size: 18, color: AppColors.error), // İkon boyutu küçültüldü
-                              onPressed: () => widget.onDeleteFood(food.id),
+                                style: const TextStyle(fontSize: 11)),
+                            trailing: GestureDetector(
+                              onTap: () => widget.onDeleteFood(food.id),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                child: const Icon(Icons.delete, size: 18, color: AppColors.error),
+                              ),
                             ),
                             onTap: () => widget.onEditFood(food),
                           );
@@ -232,13 +234,13 @@ class _MealCardState extends State<MealCard> with SingleTickerProviderStateMixin
           label,
           style: TextStyle(
               color: isDarkMode ? Colors.white70 : Colors.grey.shade700,
-              fontSize: 12), // Yazı boyutu küçültüldü
+              fontSize: 12),
         ),
-        const SizedBox(height: 2), // Boşluk azaltıldı
+        const SizedBox(height: 2),
         Text(
           value.toStringAsFixed(1),
           style: TextStyle(
-            fontSize: 14, // Yazı boyutu küçültüldü
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: color,
           ),

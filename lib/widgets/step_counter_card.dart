@@ -1,9 +1,9 @@
-// lib/widgets/step_counter_card.dart - YENİ GÖLGE SİSTEMİ İLE GÜNCELLENDİ
+// lib/widgets/step_counter_card.dart - KENAR ÇİZGİSİ KALDIRILDI GÖLGE EKLENDİ
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/exercise_provider.dart';
 import '../utils/colors.dart';
-import '../utils/theme.dart'; // YENİ EKLEME
+import '../utils/theme.dart';
 import 'activity_ring_painter.dart';
 
 class StepCounterCard extends StatelessWidget {
@@ -12,17 +12,14 @@ class StepCounterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // ESKİ: Card widget
-      // YENİ: Container + custom decoration
-      decoration: AppTheme.cardDecoration(context),
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: AppTheme.cardDecoration(context), // YENİ: Tema'dan gölge, kenar çizgisi yok
       child: InkWell(
         onTap: () {
           Navigator.pushNamed(context, '/step_details');
         },
-        borderRadius: BorderRadius.circular(16), // Decoration ile uyumlu
+        borderRadius: BorderRadius.circular(16), // YENİ: Tıklama efekti için
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(16.0), // YENİ: Padding artırıldı
           child: Consumer<ExerciseProvider>(
             builder: (context, exerciseProvider, child) {
               final steps = exerciseProvider.dailySteps;

@@ -1,4 +1,4 @@
-// lib/screens/food_calories_screen.dart - PERFORMANS DÜZELTMESİ
+// lib/screens/food_calories_screen.dart - DÜZELTİLMİŞ
 import 'package:flutter/material.dart';
 import 'package:formdakal/screens/food_search_screen.dart';
 import 'package:provider/provider.dart';
@@ -19,30 +19,41 @@ class FoodCaloriesScreen extends StatefulWidget {
 class _FoodCaloriesScreenState extends State<FoodCaloriesScreen> with AutomaticKeepAliveClientMixin {
   DateTime _selectedDate = DateTime.now();
 
-  // PERFORMANS İYİLEŞTİRMESİ - State'i koru
   @override
   bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // AutomaticKeepAliveClientMixin için gerekli
+    super.build(context);
     
     return Scaffold(
       appBar: AppBar(
         title: const Text('Yemek & Makro Takibi'),
         elevation: 0,
         actions: [
-          IconButton(
-            icon: Icon(
-              context.watch<ThemeProvider>().isDarkMode
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
+          // Tema tuşunu ana sayfadaki gibi dikdörtgen kaplama ile sarıyoruz
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            onPressed: () => context.read<ThemeProvider>().toggleTheme(),
+            child: GestureDetector(
+              onTap: () => context.read<ThemeProvider>().toggleTheme(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  context.watch<ThemeProvider>().isDarkMode
+                      ? Icons.light_mode
+                      : Icons.dark_mode,
+                  color: Colors.white, // AppBar beyaz olduğu için ikon beyaz
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: SafeArea( // Burası eklendi
+      body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshData,
           child: CustomScrollView(
@@ -132,7 +143,6 @@ class _FoodCaloriesScreenState extends State<FoodCaloriesScreen> with AutomaticK
     );
   }
 
-  // PERFORMANS İYİLEŞTİRMESİ - Pull to refresh
   Future<void> _refreshData() async {
     try {
       await Provider.of<FoodProvider>(context, listen: false).loadData();

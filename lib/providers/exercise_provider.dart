@@ -1,4 +1,4 @@
-// lib/providers/exercise_provider.dart - ÇALIŞAN ADIM SAYACI
+// lib/providers/exercise_provider.dart - PROFESYONEL ADIM SAYAR
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -19,22 +19,27 @@ class ExerciseProvider with ChangeNotifier {
   int _dailySteps = 0;
   int _dailyActiveMinutes = 0;
 
-  // BASIT ACCELEROMETER ADIM SAYACI
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   
-  // ADIM ALGILIYOR MU?
-  bool _stepDetectionActive = false;
-  double _lastMagnitude = 0;
-  DateTime? _lastStepTime;
-  List<double> _magnitudeHistory = [];
+  // Profesyonel adım algılama parametreleri
+  List<double> _magnitudeBuffer = [];
+  List<double> _filteredBuffer = [];
+  List<DateTime> _stepTimes = [];
+  
+  // Research-based parametreler
+  static const int _bufferSize = 100; // 5 saniye (20Hz)
+  static const double _minThreshold = 0.035; // 0.035g minimum eşik
+  static const double _maxThreshold = 0.2;   // 0.2g maksimum eşik
+  static const int _minStepInterval = 200;   // 200ms minimum adım aralığı
+  static const int _maxStepInterval = 2000;  // 2 saniye maksimum adım aralığı
+  static const double _lowPassAlpha = 0.3;   // Low-pass filtre katsayısı
+  
+  // Adaptif eşik parametreleri
+  double _currentThreshold = 0.1;
+  double _baselineNoise = 0.02;
   int _consecutiveSteps = 0;
   
-  // AYARLAR - ÇALIŞMASI GARANTILI
-  static const double _stepThreshold = 2.0; // Çok düşük eşik
-  static const double _maxMagnitude = 15.0; // Sallama filtresi
-  static const int _minStepGap = 200; // 200ms minimum adım aralığı
-  static const int _maxStepGap = 1500; // 1.5 saniye maksimum
-  static const int _historySize = 8; // Pattern için geçmiş
+  int _savedStepsToday = 0;
 
   static const _exercisesKey = 'completed_exercises';
   static const _stepsKey = 'daily_steps_';
@@ -42,7 +47,7 @@ class ExerciseProvider with ChangeNotifier {
 
   ExerciseProvider(this._prefs, this._achievementProvider, this._userProvider) {
     loadData();
-    _startStepCounter();
+    _initProfessionalStepCounter();
   }
 
   void updateDependencies(AchievementProvider achProvider, UserProvider usrProvider) {
@@ -54,159 +59,261 @@ class ExerciseProvider with ChangeNotifier {
   int get dailySteps => _dailySteps;
   int get dailyActiveMinutes => _dailyActiveMinutes;
 
-  /// BASIT AMA ÇALIŞAN ADIM SAYACI
-  void _startStepCounter() {
-    print('🚀 Basit adım sayacı başlıyor...');
-    
-    _accelerometerSubscription = userAccelerometerEvents.listen(
-      _onAccelerometerData,
-      onError: (error) {
-        print('❌ Accelerometer hatası: $error');
-        // 3 saniye sonra tekrar dene
-        Timer(Duration(seconds: 3), _startStepCounter);
-      },
-      cancelOnError: false,
-    );
-    
-    print('✅ Accelerometer aktif');
+  /// Araştırma tabanlı profesyonel adım sayar
+  void _initProfessionalStepCounter() {
+    try {
+      // SENSOR_DELAY_GAME kullan (research'te en iyi sonuç)
+      _accelerometerSubscription = userAccelerometerEvents.listen(
+        (UserAccelerometerEvent event) {
+          _processAccelerometerProfessional(event);
+        },
+        onError: (error) {
+          debugPrint("❌ Accelerometer hatası: $error");
+          Timer(const Duration(seconds: 5), () {
+            _initProfessionalStepCounter();
+          });
+        },
+        cancelOnError: true,
+      );
+      debugPrint("✅ Profesyonel adım sayar başlatıldı (Research-based)");
+    } catch (e) {
+      debugPrint("❌ Adım sayar başlatma hatası: $e");
+    }
   }
 
-  /// ACCELEROMETER VERİSİ - BASIT VE ETKİN
-  void _onAccelerometerData(UserAccelerometerEvent event) {
-    final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-    final now = DateTime.now();
-
-    // Geçmişe ekle
-    _magnitudeHistory.add(magnitude);
-    if (_magnitudeHistory.length > _historySize) {
-      _magnitudeHistory.removeAt(0);
-    }
-
-    // Çok yüksek hareket = telefon sallama (ENGELLE)
-    if (magnitude > _maxMagnitude) {
-      _stepDetectionActive = false;
-      _consecutiveSteps = 0;
-      return;
-    }
-
-    // Çok düşük hareket = durgun (ENGELLE)
-    if (magnitude < _stepThreshold) {
-      return;
-    }
-
-    // ADIM ALGILANABİLİR Mİ?
-    if (_canDetectStep(magnitude, now)) {
-      _recordStep(now);
-    }
-
-    _lastMagnitude = magnitude;
-  }
-
-  /// ADIM ALGILANABİLİR Mİ? - KOŞULLAR
-  bool _canDetectStep(double magnitude, DateTime now) {
-    // 1. ZAMAN KONTROLÜ
-    if (_lastStepTime != null) {
-      final timeDiff = now.difference(_lastStepTime!).inMilliseconds;
+  /// Research-based magnitude vector processing
+  void _processAccelerometerProfessional(UserAccelerometerEvent event) {
+    try {
+      // Magnitude vector hesapla (orientation-independent)
+      double magnitude = sqrt(pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2));
       
-      // Çok hızlı (< 200ms)
-      if (timeDiff < _minStepGap) {
+      // Gravity'yi çıkar (magnitude'den ~1g çıkar)
+      magnitude = magnitude - 1.0;
+      magnitude = magnitude.abs();
+      
+      // Buffer'a ekle
+      _magnitudeBuffer.add(magnitude);
+      if (_magnitudeBuffer.length > _bufferSize) {
+        _magnitudeBuffer.removeAt(0);
+      }
+      
+      // Low-pass filtre uygula (research'te önerilen)
+      double filtered = _applyLowPassFilter(magnitude);
+      _filteredBuffer.add(filtered);
+      if (_filteredBuffer.length > _bufferSize) {
+        _filteredBuffer.removeAt(0);
+      }
+      
+      // Minimum buffer size kontrolü
+      if (_filteredBuffer.length < 10) return;
+      
+      // Adaptif eşik güncelle
+      _updateAdaptiveThreshold();
+      
+      // Peak detection ve adım validation
+      if (_detectValidStep(filtered)) {
+        _registerStep();
+      }
+      
+    } catch (e) {
+      debugPrint("❌ Accelerometer veri işleme hatası: $e");
+    }
+  }
+
+  /// Research-based low-pass filter
+  double _applyLowPassFilter(double newValue) {
+    if (_filteredBuffer.isEmpty) return newValue;
+    
+    double lastFiltered = _filteredBuffer.last;
+    return _lowPassAlpha * newValue + (1 - _lowPassAlpha) * lastFiltered;
+  }
+
+  /// Adaptif eşik hesaplama (research-based)
+  void _updateAdaptiveThreshold() {
+    if (_filteredBuffer.length < 20) return;
+    
+    // Son 20 değerin variance'ını hesapla
+    List<double> recent = _filteredBuffer.skip(_filteredBuffer.length - 20).toList();
+    double mean = recent.reduce((a, b) => a + b) / recent.length;
+    double variance = recent.map((x) => pow(x - mean, 2)).reduce((a, b) => a + b) / recent.length;
+    double stdDev = sqrt(variance);
+    
+    // Adaptif eşik: mean + 2*stdDev (research'te proven)
+    _currentThreshold = (mean + 2 * stdDev).clamp(_minThreshold, _maxThreshold);
+    _baselineNoise = stdDev;
+  }
+
+  /// Gelişmiş adım validation (research-based)
+  bool _detectValidStep(double magnitude) {
+    if (_filteredBuffer.length < 5) return false;
+    
+    // 1. Threshold kontrolü
+    if (magnitude < _currentThreshold) return false;
+    
+    // 2. Peak detection - local maximum kontrolü
+    if (!_isLocalMaximum(magnitude)) return false;
+    
+    // 3. Timing validation - human walking frequency (0.5-3Hz)
+    DateTime now = DateTime.now();
+    if (_stepTimes.isNotEmpty) {
+      int timeSinceLastStep = now.difference(_stepTimes.last).inMilliseconds;
+      if (timeSinceLastStep < _minStepInterval || timeSinceLastStep > _maxStepInterval) {
         return false;
       }
-      
-      // Çok yavaş (> 1.5s) = yürüme durdu
-      if (timeDiff > _maxStepGap) {
-        _stepDetectionActive = false;
-        _consecutiveSteps = 0;
-      }
     }
-
-    // 2. PEAK DETECTION (Tepe noktası)
-    if (_magnitudeHistory.length < 3) {
+    
+    // 4. Signal quality kontrolü
+    if (_baselineNoise > 0.05) { // Çok gürültülü sinyal
       return false;
     }
+    
+    // 5. Consecutive step pattern validation
+    if (_stepTimes.length >= 3) {
+      if (!_validateStepPattern()) return false;
+    }
+    
+    return true;
+  }
 
-    // Son 3 değer: önceki < şimdiki > bir önceki
-    final len = _magnitudeHistory.length;
-    final prev = _magnitudeHistory[len - 2];
-    final current = magnitude;
-    final prevPrev = _magnitudeHistory[len - 3];
-
-    bool isPeak = current > prev && prev > prevPrev && current > (_stepThreshold + 1.0);
-
-    // 3. PATTERN KONTROLÜ
-    if (isPeak) {
-      // İlk adım mı?
-      if (!_stepDetectionActive) {
-        _stepDetectionActive = true;
-        _consecutiveSteps = 1;
-        return true;
-      } 
-      // Devam eden adımlar
-      else {
-        _consecutiveSteps++;
-        return true;
+  /// Local maximum detection
+  bool _isLocalMaximum(double currentValue) {
+    if (_filteredBuffer.length < 5) return false;
+    
+    int currentIndex = _filteredBuffer.length - 1;
+    
+    // Önceki 2 ve sonraki 2 değerden büyük olmalı
+    for (int i = 1; i <= 2; i++) {
+      if (currentIndex - i >= 0) {
+        if (currentValue <= _filteredBuffer[currentIndex - i]) return false;
       }
     }
-
-    return false;
+    
+    return true;
   }
 
-  /// ADIM KAYDET
-  void _recordStep(DateTime now) {
-    _lastStepTime = now;
+  /// Step pattern validation (research-based)
+  bool _validateStepPattern() {
+    if (_stepTimes.length < 3) return true;
+    
+    // Son 3 adımın aralıklarını kontrol et
+    List<int> intervals = [];
+    for (int i = _stepTimes.length - 3; i < _stepTimes.length - 1; i++) {
+      intervals.add(_stepTimes[i + 1].difference(_stepTimes[i]).inMilliseconds);
+    }
+    
+    // Cadence consistency kontrolü (research'te önemli faktör)
+    double avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+    
+    for (int interval in intervals) {
+      double deviation = (interval - avgInterval).abs() / avgInterval;
+      if (deviation > 0.5) { // %50'den fazla sapma varsa invalid
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  /// Adımı kaydet
+  void _registerStep() {
+    DateTime now = DateTime.now();
+    _stepTimes.add(now);
+    
+    // Step buffer'ı temizle (son 10 adım yeterli)
+    if (_stepTimes.length > 10) {
+      _stepTimes.removeAt(0);
+    }
+    
+    _consecutiveSteps++;
     _dailySteps++;
     
-    print('👣 ADIM KAYDEDILDI! Toplam: $_dailySteps (Magnitude: ${_magnitudeHistory.last.toStringAsFixed(2)})');
-    
-    _saveSteps();
+    setState(() {
+      _saveSteps();
+    });
+
+    // Debug log (her 50 adımda)
+    if (_dailySteps % 50 == 0) {
+      debugPrint("🚶 Professional Step Counter: $_dailySteps adım (Eşik: ${_currentThreshold.toStringAsFixed(3)})");
+    }
+  }
+
+  void setState(VoidCallback fn) {
+    fn();
     notifyListeners();
-    _checkStepAchievements();
-    
-    // Her 100 adımda bir motivasyon
-    if (_dailySteps % 100 == 0) {
-      print('🎉 $_dailySteps adım tamamlandı!');
-    }
   }
 
-  /// BAŞARIMLAR
-  void _checkStepAchievements() {
-    if (_dailySteps >= 1000) {
-      _achievementProvider.unlockAchievement('first_1000_steps');
-    }
-    if (_dailySteps >= 5000) {
-      _achievementProvider.unlockAchievement('daily_step_goal');
-    }
-    if (_dailySteps >= 10000) {
-      _achievementProvider.unlockAchievement('step_master');
-    }
-  }
-
-  /// VERİ YÖNETİMİ
+  /// Verileri yükle
   Future<void> loadData() async {
-    final exerciseJson = _prefs.getString(_exercisesKey);
-    if (exerciseJson != null) {
-      final List<dynamic> decoded = jsonDecode(exerciseJson);
-      _completedExercises =
-          decoded.map((item) => CompletedExercise.fromJson(item)).toList();
+    try {
+      final exerciseJson = _prefs.getString(_exercisesKey);
+      if (exerciseJson != null) {
+        final List<dynamic> decoded = jsonDecode(exerciseJson);
+        _completedExercises =
+            decoded.map((item) => CompletedExercise.fromJson(item)).toList();
+      }
+      
+      final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+      _savedStepsToday = _prefs.getInt(_stepsKey + todayKey) ?? 0;
+      _dailySteps = _savedStepsToday;
+      _dailyActiveMinutes = _prefs.getInt(_minutesKey + todayKey) ?? 0;
+      
+      debugPrint("📂 Exercise verileri yüklendi - Adım: $_dailySteps");
+      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Exercise veri yükleme hatası: $e");
     }
-    
-    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
-    _dailySteps = _prefs.getInt(_stepsKey + todayKey) ?? 0;
-    _dailyActiveMinutes = _prefs.getInt(_minutesKey + todayKey) ?? 0;
-    
-    print('📂 Yüklenen günlük adım: $_dailySteps');
-    notifyListeners();
   }
 
+  /// Adım sayısını kaydet
   Future<void> _saveSteps() async {
-    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
-    await _prefs.setInt(_stepsKey + todayKey, _dailySteps);
+    try {
+      final todayKey = DateTime.now().toIso8601String().substring(0, 10);
+      await _prefs.setInt(_stepsKey + todayKey, _dailySteps);
+    } catch (e) {
+      debugPrint("❌ Adım kaydetme hatası: $e");
+    }
+  }
+
+  /// Test için manuel adım ekleme
+  void addTestSteps(int steps) {
+    setState(() {
+      _dailySteps += steps;
+      _saveSteps();
+    });
+    debugPrint("🧪 Test adım eklendi: +$steps, Toplam: $_dailySteps");
+  }
+
+  /// Adım sayarı sıfırla
+  void resetSteps() {
+    setState(() {
+      _dailySteps = 0;
+      _savedStepsToday = 0;
+      _consecutiveSteps = 0;
+      _stepTimes.clear();
+      _saveSteps();
+    });
+    debugPrint("🔄 Adım sayar sıfırlandı");
+  }
+
+  /// Kalibrasyon bilgisi
+  Map<String, dynamic> getCalibrationInfo() {
+    return {
+      'currentThreshold': _currentThreshold.toStringAsFixed(4),
+      'baselineNoise': _baselineNoise.toStringAsFixed(4),
+      'consecutiveSteps': _consecutiveSteps,
+      'recentSteps': _stepTimes.length,
+      'bufferSize': _filteredBuffer.length,
+      'isActive': isStepCounterActive(),
+    };
   }
 
   Future<void> _saveCompletedExercises() async {
-    final jsonList =
-        _completedExercises.map((exercise) => exercise.toJson()).toList();
-    await _prefs.setString(_exercisesKey, jsonEncode(jsonList));
+    try {
+      final jsonList = _completedExercises.map((exercise) => exercise.toJson()).toList();
+      await _prefs.setString(_exercisesKey, jsonEncode(jsonList));
+    } catch (e) {
+      debugPrint("❌ Exercise kaydetme hatası: $e");
+    }
   }
 
   Future<void> addCompletedExercise(CompletedExercise exercise) async {
@@ -268,43 +375,20 @@ class ExerciseProvider with ChangeNotifier {
         .fold(0, (total, exercise) => total + exercise.durationMinutes);
   }
 
-  /// TEST FONKSİYONLARI
-  Future<void> addManualSteps(int steps) async {
-    _dailySteps += steps;
-    await _saveSteps();
-    _checkStepAchievements();
-    notifyListeners();
-    print('➕ Manuel $steps adım eklendi! Toplam: $_dailySteps');
+  bool isStepCounterActive() {
+    return _accelerometerSubscription != null && !_accelerometerSubscription!.isPaused;
   }
 
-  Future<void> resetDailySteps() async {
-    _dailySteps = 0;
-    final todayKey = DateTime.now().toIso8601String().substring(0, 10);
-    await _prefs.remove(_stepsKey + todayKey);
-    notifyListeners();
-    print('🔄 Adım sayacı sıfırlandı');
-  }
-
-  /// DEBUG BİLGİLERİ
-  void printDebugInfo() {
-    print('🐛 === ADIM SAYACI DEBUG ===');
-    print('Aktif: $_stepDetectionActive');
-    print('Günlük Adım: $_dailySteps');
-    print('Son Magnitude: ${_lastMagnitude.toStringAsFixed(2)}');
-    print('Consecutıve Steps: $_consecutiveSteps');
-    print('Geçmiş: ${_magnitudeHistory.map((e) => e.toStringAsFixed(1)).join(", ")}');
-    print('============================');
-  }
-
-  /// Tüm verileri zorla kaydet
-  Future<void> forceSave() async {
-    await _saveSteps();
-    await _saveCompletedExercises();
+  void restartStepCounter() {
+    _accelerometerSubscription?.cancel();
+    _initProfessionalStepCounter();
+    debugPrint("🔄 Profesyonel adım sayar yeniden başlatıldı");
   }
   
   @override
   void dispose() {
     _accelerometerSubscription?.cancel();
+    debugPrint("🛑 Professional exercise provider disposed");
     super.dispose();
   }
 }

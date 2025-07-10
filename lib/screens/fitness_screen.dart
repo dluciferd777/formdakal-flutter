@@ -1,4 +1,4 @@
-// lib/screens/fitness_screen.dart - PERFORMANS DÜZELTMESİ, KALORİ HESAPLAMA VE GÖRSEL İYİLEŞTİRMELER
+// lib/screens/fitness_screen.dart - APPBAR VE CARD GÖLGE DÜZELTİLDİ
 import 'package:flutter/material.dart';
 import 'package:formdakal/data/exercises_data.dart';
 import 'package:formdakal/providers/exercise_provider.dart';
@@ -22,37 +22,46 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
   final Map<String, String> _categories = ExercisesData.getExerciseCategories();
   final Map<String, List<ExerciseModel>> _exercises = ExercisesData.getFullExerciseListAsMap();
 
-  // PERFORMANS İYİLEŞTİRMESİ - State'i koru
   @override
   bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // AutomaticKeepAliveClientMixin için gerekli
+    super.build(context);
     
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fitness & Egzersiz'),
+        backgroundColor: AppColors.primaryGreen, // YENİ: Her zaman yeşil
+        foregroundColor: Colors.white, // YENİ: Yazılar beyaz
+        elevation: 0,
+        title: const Text(
+          'Fitness & Egzersiz',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white), // YENİ: İkonlar beyaz
         actions: [
           IconButton(
             icon: Icon(
               context.watch<ThemeProvider>().isDarkMode
                   ? Icons.light_mode
                   : Icons.dark_mode,
+              color: Colors.white, // YENİ: İkon beyaz
             ),
             onPressed: () => context.read<ThemeProvider>().toggleTheme(),
           ),
         ],
       ),
       body: SafeArea(
-        child: CustomScrollView( // CustomScrollView kullanıldı
+        bottom: true, // YENİ: Navigasyon bar koruması
+        child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             // Egzersiz Kategorileri Bölümü
             SliverPadding(
-              padding: const EdgeInsets.all(8), // Genel padding ayarlandı
+              padding: const EdgeInsets.all(8),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -61,30 +70,36 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
                     final isExpanded = _expandedCategory == categoryKey;
 
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 6), // Kartlar arası boşluk
+                      margin: const EdgeInsets.only(bottom: 6),
+                      elevation: isDarkMode ? 6 : 4, // YENİ: Güçlü gölge
+                      shadowColor: isDarkMode
+                          ? Colors.black.withOpacity(0.7)
+                          : Colors.grey.withOpacity(0.4), // YENİ: Gölge rengi
                       child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), // Tile padding
-                        leading: Icon(_getCategoryIcon(categoryKey), color: AppColors.primaryGreen, size: 20), // İkon boyutu
-                        title: Text(categoryName, style: theme.textTheme.titleLarge?.copyWith(fontSize: 15)), // Yazı boyutu
-                        trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 18), // İkon boyutu
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        leading: Icon(_getCategoryIcon(categoryKey), color: AppColors.primaryGreen, size: 20),
+                        title: Text(categoryName, style: theme.textTheme.titleLarge?.copyWith(fontSize: 15)),
+                        trailing: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 18),
                         initiallyExpanded: isExpanded,
                         onExpansionChanged: (expanding) => setState(() =>
                             _expandedCategory = expanding ? categoryKey : null),
                         children: (_exercises[categoryKey] ?? []).map((exercise) {
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), // İçerik padding
-                            title: Text(exercise.name, style: theme.textTheme.bodyLarge?.copyWith(fontSize: 13)), // Yazı boyutu
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                            title: Text(exercise.name, style: theme.textTheme.bodyLarge?.copyWith(fontSize: 13)),
                             subtitle: Text(exercise.description, 
-                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10), // Yazı boyutu
+                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: ElevatedButton(
                               onPressed: () => _showExerciseDialog(exercise),
                               style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(50, 25), // Buton boyutu
-                                padding: EdgeInsets.zero, // Buton içi padding kaldırıldı
-                                textStyle: const TextStyle(fontSize: 10), // Buton yazı boyutu
+                                backgroundColor: AppColors.primaryGreen,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(50, 25),
+                                padding: EdgeInsets.zero,
+                                textStyle: const TextStyle(fontSize: 10),
                               ),
                               child: const Text('Ekle'),
                             ),
@@ -98,13 +113,13 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
               ),
             ),
             
-            // "Bugün Tamamlananlar" Başlığı ve Boşluk
+            // "Bugün Tamamlananlar" Başlığı
             SliverToBoxAdapter(
               child: Column(
                 children: [
                   const Divider(thickness: 2),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 60, 16, 16), // Üst boşluk artırıldı
+                    padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text("Bugün Tamamlananlar", style: theme.textTheme.headlineSmall),
@@ -123,29 +138,33 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
                     .toList();
                   
                 if (todayExercises.isEmpty) {
-                  return SliverToBoxAdapter( // SliverToBoxAdapter içine alındı
+                  return SliverToBoxAdapter(
                     child: const Center(
                         child: Text('Henüz egzersiz eklenmedi.',
                             style: TextStyle(color: Colors.grey, fontSize: 16))),
                   );
                 }
 
-                return SliverList( // SliverList kullanıldı
+                return SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final exercise = todayExercises[index];
-                      return Padding( // Padding ile kartlar arası boşluk kontrolü
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0), // Yatay ve dikey boşluk
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                         child: Card(
-                          margin: EdgeInsets.zero, // Card'ın kendi margin'i sıfırlandı
+                          margin: EdgeInsets.zero,
+                          elevation: isDarkMode ? 6 : 4, // YENİ: Güçlü gölge
+                          shadowColor: isDarkMode
+                              ? Colors.black.withOpacity(0.7)
+                              : Colors.grey.withOpacity(0.4), // YENİ: Gölge rengi
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // İçerik padding
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             title: Text(exercise.exerciseName, 
-                              style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500, fontSize: 14)), // Yazı boyutu
+                              style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500, fontSize: 14)),
                             subtitle: Text(_buildExerciseSubtitle(exercise), 
-                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)), // Yazı boyutu
+                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete, size: 16, color: AppColors.error), // İkon boyutu
+                              icon: const Icon(Icons.delete, size: 16, color: AppColors.error),
                               onPressed: () => _deleteExercise(exercise.id),
                             ),
                           ),
@@ -158,9 +177,9 @@ class _FitnessScreenState extends State<FitnessScreen> with AutomaticKeepAliveCl
               },
             ),
             
-            // Alt kısımda ek boşluk (isteğe bağlı)
+            // Alt boşluk
             SliverToBoxAdapter(
-              child: const SizedBox(height: 80), // Alt boşluk
+              child: const SizedBox(height: 80),
             ),
           ],
         ),

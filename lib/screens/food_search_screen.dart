@@ -1,4 +1,4 @@
-// lib/screens/food_search_screen.dart
+// lib/screens/food_search_screen.dart - NAVİGASYON BAR + BİRİM SEÇİMİ DÜZELTİLDİ
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/food_model.dart';
@@ -98,6 +98,7 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
+        bottom: true, // Ana sayfa için SafeArea
         child: Column(
           children: [
             Padding(
@@ -150,13 +151,13 @@ class _FoodSearchScreenState extends State<FoodSearchScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true, // ÖNEMLİ: Modal SafeArea kullanacak
       builder: (context) => FoodDetailsSheet(food: food, mealType: widget.mealType),
     );
   }
 }
 
-
-// YENİ: Ayrı bir Stateful Widget olarak yeniden düzenlendi
+// Yemek detay modal sayfası
 class FoodDetailsSheet extends StatefulWidget {
   final FoodModel food;
   final String mealType;
@@ -246,82 +247,169 @@ class _FoodDetailsSheetState extends State<FoodDetailsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Porsiyon seçeneği olup olmadığını kontrol et
+    // HER YEMEK İÇİN ADET SEÇENEĞİ EKLEME
     bool hasServingUnit = widget.food.servingUnitName != null && widget.food.servingSizeGrams != null;
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 16, left: 16, right: 16
+        bottom: MediaQuery.of(context).viewInsets.bottom + 40, // +40'a çıkarıldı (daha yukarıda)
+        top: 24, // Top padding artırıldı
+        left: 20, 
+        right: 20,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Üst handle çubuğu
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
             Align(
               alignment: Alignment.center,
-              child: Text(widget.food.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 20)),
+              child: Text(
+                widget.food.name, 
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-            const Divider(height: 20),
+            const Divider(height: 24),
             
+            // Miktar girişi ve birim seçimi
             Row(
               children: [
                 Expanded(
+                  flex: 2,
                   child: TextField(
                     controller: _amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Miktar',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
-                const SizedBox(width: 10),
-                if (hasServingUnit)
-                  SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment<String>(value: 'gram', label: const Text('gram')),
-                      ButtonSegment<String>(value: widget.food.servingUnitName!, label: Text(widget.food.servingUnitName!)),
-                    ],
-                    selected: {_selectedUnit},
-                    onSelectionChanged: (newSelection) {
-                      setState(() {
-                        _selectedUnit = newSelection.first;
-                        // Birim değiştiğinde miktarı sıfırla veya ayarla
-                        if (_selectedUnit == 'gram') {
-                          _amountController.text = '100';
-                        } else {
-                          _amountController.text = '1';
-                        }
-                        _calculateNutrition();
-                      });
-                    },
+                const SizedBox(width: 12),
+                
+                // TÜM YEMEKLERİ İÇİN BİRİM SEÇİMİ
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SegmentedButton<String>(
+                      segments: [
+                        const ButtonSegment<String>(
+                          value: 'gram', 
+                          label: Text('Gram', style: TextStyle(fontSize: 14)),
+                        ),
+                        ButtonSegment<String>(
+                          value: hasServingUnit ? widget.food.servingUnitName! : 'adet',
+                          label: Text(
+                            hasServingUnit ? widget.food.servingUnitName! : 'Adet',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                      selected: {_selectedUnit},
+                      onSelectionChanged: (newSelection) {
+                        setState(() {
+                          _selectedUnit = newSelection.first;
+                          // Birim değiştiğinde miktarı ayarla
+                          if (_selectedUnit == 'gram') {
+                            _amountController.text = '100';
+                          } else {
+                            _amountController.text = '1';
+                          }
+                          _calculateNutrition();
+                        });
+                      },
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: AppColors.primaryGreen,
+                        selectedForegroundColor: Colors.white,
+                      ),
+                    ),
                   ),
+                ),
               ],
             ),
             
-            const SizedBox(height: 12),
-            _buildNutritionRow('Kalori', '${_calculatedCalories.toInt()} kcal', AppColors.calorieColor),
-            _buildNutritionRow('Protein', '${_calculatedProtein.toStringAsFixed(1)} g', AppColors.primaryGreen),
-            _buildNutritionRow('Yağ', '${_calculatedFat.toStringAsFixed(1)} g', Colors.redAccent),
-            _buildNutritionRow('Karbonhidrat', '${_calculatedCarbs.toStringAsFixed(1)} g', Colors.orange),
-            if (widget.food.sugar != null) _buildNutritionRow('Şeker', '${_calculatedSugar.toStringAsFixed(1)} g', Colors.purple),
-            if (widget.food.fiber != null) _buildNutritionRow('Lif', '${_calculatedFiber.toStringAsFixed(1)} g', Colors.brown),
-            if (widget.food.sodium != null) _buildNutritionRow('Sodyum', '${_calculatedSodium.toInt()} mg', Colors.blueGrey),
             const SizedBox(height: 20),
             
-            ElevatedButton(
-              onPressed: _addFoodToMeal,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                minimumSize: const Size(double.infinity, 45),
+            // Besin değerleri
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.grey.shade800 
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              child: const Text('Öğüne Ekle', style: TextStyle(fontSize: 16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Besin Değerleri',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildNutritionRow('Kalori', '${_calculatedCalories.toInt()} kcal', AppColors.calorieColor),
+                  _buildNutritionRow('Protein', '${_calculatedProtein.toStringAsFixed(1)} g', AppColors.primaryGreen),
+                  _buildNutritionRow('Yağ', '${_calculatedFat.toStringAsFixed(1)} g', Colors.redAccent),
+                  _buildNutritionRow('Karbonhidrat', '${_calculatedCarbs.toStringAsFixed(1)} g', Colors.orange),
+                  if (widget.food.sugar != null && _calculatedSugar > 0) 
+                    _buildNutritionRow('Şeker', '${_calculatedSugar.toStringAsFixed(1)} g', Colors.purple),
+                  if (widget.food.fiber != null && _calculatedFiber > 0) 
+                    _buildNutritionRow('Lif', '${_calculatedFiber.toStringAsFixed(1)} g', Colors.brown),
+                  if (widget.food.sodium != null && _calculatedSodium > 0) 
+                    _buildNutritionRow('Sodyum', '${_calculatedSodium.toInt()} mg', Colors.blueGrey),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
+            
+            const SizedBox(height: 20),
+            
+            // Ekle butonu
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _addFoodToMeal,
+                icon: const Icon(Icons.add_circle, color: Colors.white),
+                label: Text(
+                  '${_getMealTypeName(widget.mealType)} Ekle',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -330,14 +418,39 @@ class _FoodDetailsSheetState extends State<FoodDetailsSheet> {
 
   Widget _buildNutritionRow(String label, String value, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 14)),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(
+            label, 
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          ),
+          Text(
+            value, 
+            style: TextStyle(
+              color: color, 
+              fontWeight: FontWeight.bold, 
+              fontSize: 15,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _getMealTypeName(String mealType) {
+    switch (mealType) {
+      case 'breakfast':
+        return 'Kahvaltıya';
+      case 'lunch':
+        return 'Öğle Yemeğine';
+      case 'dinner':
+        return 'Akşam Yemeğine';
+      case 'snack':
+        return 'Aperatiflere';
+      default:
+        return 'Öğüne';
+    }
   }
 }

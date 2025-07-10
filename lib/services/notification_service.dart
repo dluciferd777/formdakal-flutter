@@ -1,11 +1,11 @@
-// lib/services/notification_service.dart - HATASIZ VERSİYON
+// lib/services/notification_service.dart - SESLİ + TİTREŞİMLİ BİLDİRİM GÜÇLENDİRİLDİ
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
-import 'dart:typed_data'; // Int64List için import
+import 'dart:typed_data'; // YENİ: Int64List için
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -27,6 +27,7 @@ class NotificationService {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
     
+    // YENİ: Gelişmiş Android ayarları - SES + TİTREŞİM
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -42,25 +43,52 @@ class NotificationService {
       },
     );
 
+    // YENİ: Bildirim kanalı oluştur (Android 8+)
+    await _createNotificationChannels();
+
     // İzinleri iste
     await _requestPermissions();
     
     // Otomatik hatırlatmaları ayarla
     await _setupAutomaticReminders();
     
-    print('✅ Bildirim servisi başlatıldı');
+    print('✅ Bildirim servisi başlatıldı - Ses ve titreşim aktif');
+  }
+
+  // YENİ: Bildirim kanalları oluştur
+  Future<void> _createNotificationChannels() async {
+    final AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'formdakal_reminders', // Kanal ID
+      'FormdaKal Hatırlatıcılar', // Kanal adı
+      description: 'Egzersiz, su içme ve diğer hatırlatıcılar', // Açıklama
+      importance: Importance.high,
+      enableVibration: true, // TİTREŞİM AKTİF
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]), // Titreşim deseni
+      playSound: true, // SES AKTİF
+    );
+
+    await _notifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   Future<void> _requestPermissions() async {
     // Android 13+ için bildirim izni
     if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
+      final result = await Permission.notification.request();
+      print('📱 Bildirim izni: $result');
     }
     
     // Tam erişim izni (Android 6+)
     if (await Permission.scheduleExactAlarm.isDenied) {
-      await Permission.scheduleExactAlarm.request();
+      final result = await Permission.scheduleExactAlarm.request();
+      print('⏰ Zamanlı bildirim izni: $result');
     }
+
+    // YENİ: Ses ve titreşim izinleri kontrol et
+    print('🔊 İzin durumları:');
+    print('- Bildirim: ${await Permission.notification.status}');
+    print('- Zamanlı bildirim: ${await Permission.scheduleExactAlarm.status}');
   }
 
   Future<void> _handleNotificationTap(NotificationResponse response) async {
@@ -77,35 +105,37 @@ class NotificationService {
         case 'water_reminder':
           print('💧 Su içme hatırlatması tıklandı');
           break;
+        default:
+          if (payload.startsWith('reminder_') || payload.startsWith('test_reminder_')) {
+            print('📝 Hatırlatıcı tıklandı: $payload');
+          }
       }
     }
   }
 
-  // ========== SESLİ HATIRLATICI BİLDİRİMLERİ ==========
-  Future<void> scheduleReminderNotification({
+  // YENİ: Güçlendirilmiş bildirim zamanlama - SES + TİTREŞİM
+  Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledTime,
     String? payload,
   }) async {
-    // SESLİ + TİTREŞİMLİ bildirim (Hatırlatıcılar için)
+    // YENİ: Gelişmiş Android ayarları
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'formdakal_reminders', // AYRI KANAL
+      'formdakal_reminders', // Yukarıda oluşturduğumuz kanal
       'FormdaKal Hatırlatıcılar',
-      channelDescription: 'Sesli hatırlatıcı bildirimleri',
+      channelDescription: 'Egzersiz ve beslenme hatırlatıcıları',
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      enableVibration: true,
+      enableVibration: true, // TİTREŞİM AKTİF
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]), // Güçlü titreşim
       playSound: true, // SES AKTİF
       icon: '@mipmap/ic_launcher',
-      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-      autoCancel: true,
-      ongoing: false,
-      channelShowBadge: true,
-      // TİTREŞİM PATTERN'İ
-      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]), // Uzun titreşim
+      autoCancel: true, // Tıklandığında otomatik kaybolsun
+      ongoing: false, // Sürekli bildirim değil
+      ticker: title, // Kısa bilgi
     );
 
     final NotificationDetails notificationDetails = NotificationDetails(
@@ -113,25 +143,41 @@ class NotificationService {
     );
 
     try {
-      await _notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(scheduledTime, tz.local),
-        notificationDetails,
-        payload: payload,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
+      // Zamanlanan saati kontrol et
+      if (scheduledTime.isBefore(DateTime.now())) {
+        print('⚠️ Uyarı: Bildirim zamanı geçmiş - Şimdi gösteriliyor');
+        
+        // Geçmiş zamansa hemen göster
+        await _notifications.show(
+          id,
+          title,
+          body,
+          notificationDetails,
+          payload: payload,
+        );
+      } else {
+        // Gelecek zamansa zamanla
+        await _notifications.zonedSchedule(
+          id,
+          title,
+          body,
+          tz.TZDateTime.from(scheduledTime, tz.local),
+          notificationDetails,
+          payload: payload,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      }
 
-      print('✅ SESLİ hatırlatıcı zamanlandı: $title - $scheduledTime');
+      print('✅ Bildirim zamanlandı: $title - $scheduledTime (ID: $id)');
+      print('🔊 Ses ve titreşim aktif');
     } catch (e) {
-      print('❌ Hatırlatıcı zamanlama hatası: $e');
+      print('❌ Bildirim zamanlama hatası: $e');
     }
   }
 
-  // ========== SESLİ ANINDA HATIRLATICI ==========
-  Future<void> showReminderNotification({
+  // YENİ: Test için anında güçlü bildirim
+  Future<void> showInstantNotification({
     required int id,
     required String title,
     required String body,
@@ -140,101 +186,16 @@ class NotificationService {
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'formdakal_reminders',
       'FormdaKal Hatırlatıcılar',
-      channelDescription: 'Sesli hatırlatıcı bildirimleri',
-      importance: Importance.high,
-      priority: Priority.high,
+      channelDescription: 'Anında bildirimler ve test mesajları',
+      importance: Importance.max, // MAKSİMUM ÖNEMLİLİK
+      priority: Priority.max, // MAKSİMUM ÖNCELİK
       showWhen: true,
       enableVibration: true,
-      playSound: true, // SES AKTİF
-      icon: '@mipmap/ic_launcher',
-      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]),
-    );
-
-    final NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    try {
-      await _notifications.show(
-        id,
-        title,
-        body,
-        notificationDetails,
-        payload: payload,
-      );
-      
-      print('✅ SESLİ hatırlatıcı gönderildi: $title');
-    } catch (e) {
-      print('❌ Hatırlatıcı gönderme hatası: $e');
-    }
-  }
-
-  // ========== SESLİ OLMAYAN BİLDİRİMLER ==========
-  Future<void> scheduleNotification({
-    required int id,
-    required String title,
-    required String body,
-    required DateTime scheduledTime,
-    String? payload,
-  }) async {
-    // SADECE TİTREŞİMLİ bildirim (Diğer bildirimler için)
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'formdakal_general', // AYRI KANAL
-      'FormdaKal Genel Bildirimler',
-      channelDescription: 'Genel uygulama bildirimleri',
-      importance: Importance.low, // Düşük öncelik
-      priority: Priority.low,
-      showWhen: true,
-      enableVibration: true,
-      playSound: false, // SES KAPALI
+      vibrationPattern: Int64List.fromList([0, 500, 200, 500, 200, 500]), // Güçlü titreşim
+      playSound: true,
       icon: '@mipmap/ic_launcher',
       autoCancel: true,
-      ongoing: false,
-      // KISA TİTREŞİM
-      vibrationPattern: Int64List.fromList([0, 250, 100, 250]), // Kısa titreşim
-    );
-
-    final NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    try {
-      await _notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(scheduledTime, tz.local),
-        notificationDetails,
-        payload: payload,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
-
-      print('✅ Sessiz bildirim zamanlandı: $title - $scheduledTime');
-    } catch (e) {
-      print('❌ Bildirim zamanlama hatası: $e');
-    }
-  }
-
-  // Anında sessiz bildirim göster
-  Future<void> showInstantNotification({
-    required int id,
-    required String title,
-    required String body,
-    String? payload,
-  }) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'formdakal_general',
-      'FormdaKal Genel Bildirimler',
-      channelDescription: 'Genel uygulama bildirimleri',
-      importance: Importance.low,
-      priority: Priority.low,
-      showWhen: true,
-      enableVibration: true,
-      playSound: false, // SES KAPALI
-      icon: '@mipmap/ic_launcher',
-      vibrationPattern: Int64List.fromList([0, 250, 100, 250]),
+      ticker: title,
     );
 
     final NotificationDetails notificationDetails = NotificationDetails(
@@ -250,15 +211,14 @@ class NotificationService {
         payload: payload,
       );
       
-      print('✅ Sessiz bildirim gönderildi: $title');
+      print('✅ Anında bildirim gönderildi: $title (ID: $id)');
+      print('🔊 Maksimum ses ve titreşim ile');
     } catch (e) {
-      print('❌ Bildirim gönderme hatası: $e');
+      print('❌ Anında bildirim hatası: $e');
     }
   }
 
-  // ========== HATIRLATICI OTOMATIK SİSTEMLER (SESLİ) ==========
   Future<void> _setupAutomaticReminders() async {
-    // SESLİ hatırlatıcılar
     await _scheduleStepReminder();
     await _scheduleWorkoutReminder();
     await _scheduleWaterReminders();
@@ -275,8 +235,7 @@ class NotificationService {
       reminderTime = reminderTime.add(const Duration(days: 1));
     }
 
-    // SESLİ hatırlatıcı kullan
-    await scheduleReminderNotification(
+    await scheduleNotification(
       id: _stepReminderID,
       title: '🦶 Adım Hedefin Nasıl?',
       body: 'Bugün henüz hedefe ulaşmadın. Biraz yürüyüş yapmaya ne dersin?',
@@ -296,8 +255,7 @@ class NotificationService {
       reminderTime = reminderTime.add(const Duration(days: 1));
     }
 
-    // SESLİ hatırlatıcı kullan
-    await scheduleReminderNotification(
+    await scheduleNotification(
       id: _workoutReminderID,
       title: '💪 Spor Zamanı!',
       body: 'Bugün egzersiz yapmayı unutma. Formda kalmak için harekete geç!',
@@ -327,8 +285,7 @@ class NotificationService {
 
       final randomMessage = waterMessages[Random().nextInt(waterMessages.length)];
       
-      // SESLİ hatırlatıcı kullan
-      await scheduleReminderNotification(
+      await scheduleNotification(
         id: _waterReminderID + hour,
         title: 'Su İçme Hatırlatması',
         body: randomMessage,
@@ -338,7 +295,6 @@ class NotificationService {
     }
   }
 
-  // ========== MOTİVASYON BİLDİRİMLERİ (SESLİ DEĞİL) ==========
   Future<void> sendMotivationNotification(String type) async {
     String title, body;
     
@@ -360,7 +316,6 @@ class NotificationService {
         body = 'Hedeflerine ulaşmak için bir adım daha!';
     }
 
-    // Sessiz bildirim kullan
     await showInstantNotification(
       id: Random().nextInt(1000) + 3000,
       title: title,
@@ -369,7 +324,6 @@ class NotificationService {
     );
   }
 
-  // Hatırlatma ayarlarını değiştir
   Future<void> toggleReminderType(String type, bool isEnabled) async {
     await _prefs.setBool('${type}_reminder_enabled', isEnabled);
     
@@ -398,40 +352,26 @@ class NotificationService {
     }
   }
 
-  // Tekil bildirim iptal et
   Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
     print('🗑️ Bildirim iptal edildi: ID $id');
   }
 
-  // Tüm bildirimleri iptal et
   Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
     print('🗑️ Tüm bildirimler iptal edildi');
   }
 
-  // Hatırlatma ayar durumunu kontrol et
   bool isReminderEnabled(String type) {
     return _prefs.getBool('${type}_reminder_enabled') ?? true;
   }
 
-  // Test bildirimi gönder
   Future<void> sendTestNotification() async {
     await showInstantNotification(
       id: 9999,
       title: '🧪 Test Bildirimi',
-      body: 'FormdaKal bildirimleri çalışıyor! ✅',
+      body: 'FormdaKal bildirimleri çalışıyor! Ses ve titreşim aktif! ✅',
       payload: 'test',
-    );
-  }
-
-  // SESLİ test hatırlatıcısı gönder
-  Future<void> sendTestReminderNotification() async {
-    await showReminderNotification(
-      id: 9998,
-      title: '🔔 Sesli Test Hatırlatıcısı',
-      body: 'Bu hatırlatıcı sesli ve titreşimli olmalı! 🔊',
-      payload: 'test_reminder',
     );
   }
 }

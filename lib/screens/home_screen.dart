@@ -1,4 +1,4 @@
-// lib/screens/home_screen.dart - HAMBURGER MENÜ + TEMA DÜZELTMESİ
+// lib/screens/home_screen.dart - DÜZELTİLMİŞ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -36,7 +36,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // Sistem UI rengini dinamik olarak ayarla
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -52,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       drawer: const CustomDrawer(),
       extendBody: true,
       extendBodyBehindAppBar: false,
-      backgroundColor: isDarkMode ? const Color(0xFF121212) : Colors.white,
       body: Column(
         children: [
           Expanded(
@@ -60,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               bottom: false,
               child: RefreshIndicator(
                 onRefresh: _refreshData,
-                color: AppColors.primaryGreen,
                 child: Consumer5<UserProvider, FoodProvider, ExerciseProvider, AchievementProvider, ThemeProvider>(
                   builder: (context, userProvider, foodProvider, exerciseProvider, achievementProvider, themeProvider, child) {
                     final user = userProvider.user;
@@ -78,103 +75,48 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       slivers: [
                         // Header
                         SliverToBoxAdapter(
-                          child: Container(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            decoration: BoxDecoration(
-                              color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isDarkMode ? Colors.black : Colors.grey).withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Hamburger Menü - Beyaz temada görünür
+                                // Menü tuşunu dikdörtgen kaplama ile sarıyoruz
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: isDarkMode 
-                                        ? Colors.grey.shade800 
-                                        : AppColors.primaryGreen.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: isDarkMode 
-                                        ? null 
-                                        : Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                                    color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.menu_rounded, 
-                                      size: 28, 
-                                      color: isDarkMode 
-                                          ? Colors.white 
-                                          : AppColors.primaryGreen,
+                                  child: GestureDetector(
+                                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Icon(Icons.menu, size: 28, color: isDarkMode ? Colors.white : Colors.black),
                                     ),
-                                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                                    tooltip: 'Menüyü Aç',
                                   ),
                                 ),
-                                
-                                // Logo
                                 RichText(
                                   text: TextSpan(
-                                    style: theme.textTheme.displaySmall?.copyWith(
-                                      fontWeight: FontWeight.bold, 
-                                      color: isDarkMode ? Colors.white : Colors.black87,
-                                    ),
+                                    style: theme.textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black),
                                     children: const [
-                                      TextSpan(
-                                        text: 'F', 
-                                        style: TextStyle(
-                                          color: AppColors.primaryGreen, 
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
+                                      TextSpan(text: 'F', style: TextStyle(color: AppColors.primaryGreen, fontSize: 48)),
                                       TextSpan(text: 'ormda'),
-                                      TextSpan(
-                                        text: 'K', 
-                                        style: TextStyle(
-                                          color: AppColors.primaryGreen, 
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
+                                      TextSpan(text: 'K', style: TextStyle(color: AppColors.primaryGreen, fontSize: 48)),
                                       TextSpan(text: 'al'),
                                     ],
                                   ),
                                 ),
-                                
-                                // Tema değiştirme butonu
+                                // Tema tuşunu dikdörtgen kaplama ile sarıyoruz
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: isDarkMode 
-                                        ? Colors.grey.shade800 
-                                        : AppColors.primaryGreen.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: isDarkMode 
-                                        ? null 
-                                        : Border.all(color: AppColors.primaryGreen.withOpacity(0.3)),
+                                    color: isDarkMode ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      themeProvider.isDarkMode 
-                                          ? Icons.light_mode_rounded 
-                                          : Icons.dark_mode_rounded, 
-                                      size: 28, 
-                                      color: isDarkMode 
-                                          ? Colors.yellow.shade600 
-                                          : AppColors.primaryGreen,
+                                  child: GestureDetector(
+                                    onTap: () => themeProvider.toggleTheme(),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Icon(themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode, size: 28, color: isDarkMode ? Colors.white : Colors.black),
                                     ),
-                                    onPressed: () {
-                                      themeProvider.toggleTheme();
-                                      // Haptic feedback
-                                      HapticFeedback.lightImpact();
-                                    },
-                                    tooltip: isDarkMode ? 'Açık Tema' : 'Koyu Tema',
                                   ),
                                 ),
                               ],
@@ -182,118 +124,38 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                         
-                        // Boşluk
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: 20),
-                        ),
-
-                        // Kullanıcı Karşılama Mesajı
                         SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isDarkMode 
-                                      ? [AppColors.primaryGreen.withOpacity(0.3), AppColors.primaryGreen.withOpacity(0.1)]
-                                      : [AppColors.primaryGreen.withOpacity(0.1), AppColors.primaryGreen.withOpacity(0.05)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: AppColors.primaryGreen.withOpacity(0.2),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.waving_hand_rounded,
-                                    color: AppColors.primaryGreen,
-                                    size: 32,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Merhaba ${user?.name ?? 'Kullanıcı'}!',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: isDarkMode ? Colors.white : Colors.black87,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Bugün hedeflerine ulaşmak için hazır mısın?',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          child: SizedBox(height: 40),
                         ),
 
                         // Calendar
                         SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 24),
-                            child: ActivityCalendar(
-                              mode: CalendarMode.activity,
-                              showStats: false, 
-                              onDateSelected: (date) {
-                                setState(() {
-                                  _selectedDate = date;
-                                });
-                                HapticFeedback.selectionClick();
-                              },
-                            ),
+                          child: ActivityCalendar(
+                            mode: CalendarMode.activity,
+                            showStats: false, 
+                            onDateSelected: (date) {
+                              setState(() {
+                                _selectedDate = date;
+                              });
+                            },
                           ),
                         ),
                         
                         // Activities Header ve Paylaş Butonu
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 32, 20, 16),
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Bugünkü Aktivitelerim', 
-                                  style: theme.textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.w700, 
-                                    color: isDarkMode ? Colors.white : Colors.black87,
-                                  ),
-                                ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryGreen,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.primaryGreen.withOpacity(0.3),
-                                        spreadRadius: 1,
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(Icons.share_rounded, size: 22, color: Colors.white),
-                                    onPressed: () {
-                                      Navigator.pushNamed(context, '/daily_summary');
-                                      HapticFeedback.mediumImpact();
-                                    },
-                                    tooltip: 'Günlük Özetimi Paylaş',
+                                Text('Aktivitelerim', 
+                                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white : Colors.black)),
+                                // Paylaşım tuşunun yuvarlak kaplamadını kaldırıyoruz
+                                GestureDetector(
+                                  onTap: () => Navigator.pushNamed(context, '/daily_summary'),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    child: Icon(Icons.share, size: 28, color: AppColors.primaryGreen),
                                   ),
                                 ),
                               ],
@@ -301,195 +163,81 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                         
-                      // Activity Cards
-SliverToBoxAdapter(
-  child: Column(
-    children: [
-      // Step Counter Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: const StepCounterCard(),
-        ),
-      ),
-      
-      const SizedBox(height: 12),
-      
-      // Başarımlar Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ExpandableActivityCard(
-            title: 'Başarımlar',
-            subtitle: 'Kazanılan rozet ve madalyalar',
-            value: unlockedAchievements.toString(),
-            unit: 'adet',
-            icon: Icons.emoji_events,
-            color: Colors.amber,
-            type: ActivityCardType.achievements,
-          ),
-        ),
-      ),
-      
-      const SizedBox(height: 12),
-      
-      // Fitness Kalori Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ExpandableActivityCard(
-            title: 'Fitness Kalori',
-            subtitle: 'Bugün yakılan kalori',
-            value: dailyBurnedCalories.toInt().toString(),
-            unit: 'kal',
-            icon: Icons.fitness_center,
-            color: AppColors.primaryGreen,
-            type: ActivityCardType.fitness,
-          ),
-        ),
-      ),
-      
-      const SizedBox(height: 12),
-      
-      // Yemek Kalori Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ExpandableActivityCard(
-            title: 'Yemek Kalori',
-            subtitle: 'Bugün alınan kalori',
-            value: dailyIntakeCalories.toStringAsFixed(0),
-            unit: 'kal',
-            icon: Icons.restaurant,
-            color: AppColors.calorieColor,
-            type: ActivityCardType.food,
-          ),
-        ),
-      ),
-      
-      const SizedBox(height: 12),
-      
-      // Kalori Takip Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ExpandableActivityCard(
-            title: 'Kalori Takip',
-            subtitle: 'Net kalori dengesi',
-            value: (dailyIntakeCalories - dailyBurnedCalories).toStringAsFixed(0),
-            unit: 'kal',
-            icon: Icons.track_changes,
-            color: Colors.blueAccent,
-            type: ActivityCardType.calorieTracking,
-          ),
-        ),
-      ),
-      
-      const SizedBox(height: 12),
-      
-      // Su Tüketimi Card
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1C1C1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: isDarkMode 
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ExpandableActivityCard(
-            title: 'Su Tüketimi',
-            subtitle: '${(dailyWaterTarget * 1000).toInt()} ml hedef',
-            value: (dailyWaterIntake * 1000).toInt().toString(),
-            unit: 'ml',
-            icon: Icons.water_drop,
-            color: AppColors.timeColor,
-            type: ActivityCardType.water,
-          ),
-        ),
-      ),
-      
-      // Navigation bar boşluğu
-      SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
-    ],
+                        // Activity Cards
+                        SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: const StepCounterCard(),
+                              ),
+                              const SizedBox(height: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ExpandableActivityCard(
+                                  title: 'Başarımlar',
+                                  subtitle: 'Kazanılan rozet ve madalyalar',
+                                  value: unlockedAchievements.toString(),
+                                  unit: 'adet',
+                                  icon: Icons.emoji_events,
+                                  color: Colors.amber,
+                                  type: ActivityCardType.achievements,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ExpandableActivityCard(
+                                  title: 'Fitness Kalori',
+                                  subtitle: 'Bugün yakılan kalori',
+                                  value: dailyBurnedCalories.toInt().toString(),
+                                  unit: 'kal',
+                                  icon: Icons.fitness_center,
+                                  color: AppColors.primaryGreen,
+                                  type: ActivityCardType.fitness,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ExpandableActivityCard(
+                                  title: 'Yemek Kalori',
+                                  subtitle: 'Bugün alınan kalori',
+                                  value: dailyIntakeCalories.toStringAsFixed(0),
+                                  unit: 'kal',
+                                  icon: Icons.restaurant,
+                                  color: AppColors.calorieColor,
+                                  type: ActivityCardType.food,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ExpandableActivityCard(
+                                  title: 'Kalori Takip',
+                                  subtitle: 'Net kalori dengesi',
+                                  value: (dailyIntakeCalories - dailyBurnedCalories).toStringAsFixed(0),
+                                  unit: 'kal',
+                                  icon: Icons.track_changes,
+                                  color: Colors.blueAccent,
+                                  type: ActivityCardType.calorieTracking,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: ExpandableActivityCard(
+                                  title: 'Su Tüketimi',
+                                  subtitle: '${(dailyWaterTarget * 1000).toInt()} ml hedef',
+                                  value: (dailyWaterIntake * 1000).toInt().toString(),
+                                  unit: 'ml',
+                                  icon: Icons.water_drop,
+                                  color: AppColors.timeColor,
+                                  type: ActivityCardType.water,
+                                ),
+                              ),
+                              SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
+                            ],
                           ),
                         ),
                       ],
@@ -506,8 +254,6 @@ SliverToBoxAdapter(
 
   Future<void> _refreshData() async {
     try {
-      HapticFeedback.lightImpact();
-      
       await Future.wait([
         Provider.of<UserProvider>(context, listen: false).loadUser(),
         Provider.of<FoodProvider>(context, listen: false).loadData(),
@@ -516,18 +262,10 @@ SliverToBoxAdapter(
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: const [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Veriler başarıyla güncellendi'),
-              ],
-            ),
+          const SnackBar(
+            content: Text('Veriler güncellendi'),
             backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: Duration(seconds: 1),
           ),
         );
       }
@@ -535,17 +273,9 @@ SliverToBoxAdapter(
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Güncelleme hatası: $e')),
-              ],
-            ),
+            content: Text('Güncelleme hatası: $e'),
             backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: Duration(seconds: 1),
           ),
         );
       }

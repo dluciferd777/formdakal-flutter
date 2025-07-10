@@ -1,37 +1,49 @@
-// lib/utils/theme.dart - İYİLEŞTİRİLMİŞ TEMA
+// lib/utils/theme.dart - DÜZELTİLMİŞ
 import 'package:flutter/material.dart';
 import 'colors.dart';
 
 class AppTheme {
   static final _baseTextTheme = ThemeData.dark().textTheme;
 
-  // --- AÇIK TEMA - KARTLAR DAHA BELİRGİN ---
+  // Card decoration metodu eklendi
+  static BoxDecoration cardDecoration(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return BoxDecoration(
+      color: isDarkMode ? AppColors.darkCard : AppColors.lightCard,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: isDarkMode 
+              ? Colors.black.withOpacity(0.3) 
+              : Colors.grey.withOpacity(0.2),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  // --- AÇIK TEMA ---
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
     primaryColor: AppColors.primaryGreen,
-    scaffoldBackgroundColor: AppColors.lightSurface, // Hafif gri arka plan
+    scaffoldBackgroundColor: AppColors.lightSurface,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.primaryGreen,
-      foregroundColor: Colors.white, // AppBar'da beyaz yazı
-      elevation: 0,
+      backgroundColor: AppColors.primaryGreen, // AppBar her zaman yeşil
+      foregroundColor: Colors.white, // AppBar üzerindeki yazı ve ikonlar beyaz
+      elevation: 2,
       centerTitle: true,
       titleTextStyle: _baseTextTheme.headlineSmall?.copyWith(
-        color: Colors.white,
+        color: Colors.white, // Başlık metni beyaz
         fontWeight: FontWeight.bold,
       ),
     ),
     cardTheme: CardThemeData(
-      color: AppColors.lightCard, // Kartlar beyaz
-      elevation: 0, // Elevation yerine shadow kullanacağız
-      shadowColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: AppColors.lightCardBorderColor,
-          width: 1,
-        ),
-      ),
+      color: AppColors.lightCard,
+      elevation: 2,
+      shadowColor: Colors.grey.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(vertical: 8),
     ),
     textTheme: _baseTextTheme.copyWith(
@@ -54,7 +66,6 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primaryGreen,
         foregroundColor: Colors.white,
-        elevation: 0, // Flat tasarım
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -63,37 +74,30 @@ class AppTheme {
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primaryGreen,
       foregroundColor: Colors.white,
-      elevation: 4,
     ),
   );
 
-  // --- KOYU TEMA - DAHA SERT SİYAH ---
+  // --- KOYU TEMA ---
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
     primaryColor: AppColors.primaryGreen,
-    scaffoldBackgroundColor: AppColors.darkBackground, // TAM SİYAH
+    scaffoldBackgroundColor: AppColors.darkBackground,
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.darkSurface, // TAM SİYAH
-      foregroundColor: AppColors.textPrimary,
-      elevation: 0,
+      backgroundColor: AppColors.darkSurface, // Koyu temada koyu arka plan
+      foregroundColor: Colors.white, // Yazı ve ikonlar beyaz
+      elevation: 2,
       centerTitle: true,
       titleTextStyle: _baseTextTheme.headlineSmall?.copyWith(
-        color: AppColors.textPrimary,
+        color: Colors.white, // Başlık metni beyaz
         fontWeight: FontWeight.bold,
       ),
     ),
     cardTheme: CardThemeData(
-      color: AppColors.darkCard, // Kartlar hafif gri (siyah değil)
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: AppColors.darkCardBorder,
-          width: 0.5,
-        ),
-      ),
+      color: AppColors.darkCard,
+      elevation: 4,
+      shadowColor: AppColors.shadowDark,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(vertical: 8),
     ),
     textTheme: _baseTextTheme.copyWith(
@@ -116,7 +120,6 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primaryGreen,
         foregroundColor: Colors.white,
-        elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -125,49 +128,6 @@ class AppTheme {
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primaryGreen,
       foregroundColor: Colors.white,
-      elevation: 6,
     ),
   );
-
-  // CUSTOM CARD DECORATION METHODS
-  static BoxDecoration lightCardDecoration({
-    Color? color,
-    BorderRadius? borderRadius,
-  }) {
-    return BoxDecoration(
-      color: color ?? AppColors.lightCard,
-      borderRadius: borderRadius ?? BorderRadius.circular(16),
-      border: Border.all(
-        color: AppColors.darkCardBorder,
-        width: 1,
-      ),
-      boxShadow: AppColors.lightCardShadow,
-    );
-  }
-
-  static BoxDecoration darkCardDecoration({
-    Color? color,
-    BorderRadius? borderRadius,
-  }) {
-    return BoxDecoration(
-      color: color ?? AppColors.darkCard,
-      borderRadius: borderRadius ?? BorderRadius.circular(16),
-      border: Border.all(
-        color: AppColors.darkCardBorder,
-        width: 0.5,
-      ),
-      boxShadow: AppColors.darkCardShadow,
-    );
-  }
-
-  // CONTEXT'E BAĞLI CARD DECORATION
-  static BoxDecoration cardDecoration(BuildContext context, {
-    Color? color,
-    BorderRadius? borderRadius,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark 
-        ? darkCardDecoration(color: color, borderRadius: borderRadius)
-        : lightCardDecoration(color: color, borderRadius: borderRadius);
-  }
 }

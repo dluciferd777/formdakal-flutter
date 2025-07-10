@@ -1,14 +1,14 @@
-// lib/providers/reminder_provider.dart
+// lib/providers/reminder_provider.dart - SESLİ BİLDİRİM EKLENDİ
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/reminder_model.dart';
-import '../services/notification_service.dart';
+import '../services/notification_service.dart'; // YENİ EKLENDİ
 
 class ReminderProvider with ChangeNotifier {
   final SharedPreferences _prefs;
+  final NotificationService _notificationService = NotificationService(); // YENİ EKLENDİ
   List<Reminder> _reminders = [];
-  final NotificationService _notificationService = NotificationService();
 
   ReminderProvider(this._prefs) {
     _loadReminders();
@@ -30,310 +30,122 @@ class ReminderProvider with ChangeNotifier {
     await _prefs.setString('reminders', jsonEncode(jsonList));
   }
 
+  // YENİ EKLENDİ: Sesli bildirim ile hatırlatıcı ekleme
   Future<void> addReminder(Reminder reminder) async {
     _reminders.add(reminder);
     await _saveReminders();
     
-    // Bildirim zamanlama
-    if (reminder.isActive) {
-      await _scheduleReminderNotifications(reminder);
+    // SESLİ BİLDİRİM ZAMANLA
+    if (reminder.isActive && reminder.reminderDateTime.isAfter(DateTime.now())) {
+      await _scheduleNotification(reminder);
     }
-    
-    // Başarı bildirimi göster
-    await _notificationService.showInstantNotification(
-      id: 10000 + _reminders.length,
-      title: '✅ Hatırlatıcı Oluşturuldu',
-      body: '${reminder.title} başarıyla eklendi!',
-      payload: 'reminder_created',
-    );
     
     notifyListeners();
   }
 
+  // YENİ EKLENDİ: Sesli bildirim ile hatırlatıcı güncelleme
   Future<void> updateReminder(Reminder updatedReminder) async {
     final index = _reminders.indexWhere((r) => r.id == updatedReminder.id);
     if (index != -1) {
-      // Eski bildirimleri iptal et
-      await _cancelReminderNotifications(_reminders[index]);
+      // Eski bildirimi iptal et
+      await _notificationService.cancelNotification(_getNotificationId(updatedReminder.id));
       
       _reminders[index] = updatedReminder;
       await _saveReminders();
       
-      // Yeni bildirimleri zamanla
-      if (updatedReminder.isActive) {
-        await _scheduleReminderNotifications(updatedReminder);
+      // Yeni bildirim zamanla
+      if (updatedReminder.isActive && updatedReminder.reminderDateTime.isAfter(DateTime.now())) {
+        await _scheduleNotification(updatedReminder);
       }
       
       notifyListeners();
     }
   }
 
+  // YENİ EKLENDİ: Sesli bildirim ile hatırlatıcı silme
   Future<void> deleteReminder(String reminderId) async {
-    final reminderToDelete = _reminders.firstWhere((r) => r.id == reminderId);
-    
-    // Bildirimleri iptal et
-    await _cancelReminderNotifications(reminderToDelete);
+    // Bildirimi iptal et
+    await _notificationService.cancelNotification(_getNotificationId(reminderId));
     
     _reminders.removeWhere((r) => r.id == reminderId);
     await _saveReminders();
-    
-    // Silme bildirimi göster
-    await _notificationService.showInstantNotification(
-      id: 10100,
-      title: '🗑️ Hatırlatıcı Silindi',
-      body: '${reminderToDelete.title} başarıyla silindi.',
-      payload: 'reminder_deleted',
-    );
-    
     notifyListeners();
   }
 
+  // YENİ EKLENDİ: Sesli bildirim ile aktif/pasif değiştirme
   Future<void> toggleReminderStatus(String reminderId, bool isActive) async {
     final index = _reminders.indexWhere((r) => r.id == reminderId);
     if (index != -1) {
-      final reminder = _reminders[index];
-      
-      if (!isActive) {
-        // Devre dışı bırakılıyorsa bildirimleri iptal et
-        await _cancelReminderNotifications(reminder);
-      }
-      
       _reminders[index].isActive = isActive;
       await _saveReminders();
       
-      if (isActive) {
-        // Etkinleştiriliyorsa bildirimleri yeniden zamanla
-        await _scheduleReminderNotifications(_reminders[index]);
-        
-        await _notificationService.showInstantNotification(
-          id: 10200,
-          title: '🔔 Hatırlatıcı Etkinleştirildi',
-          body: '${reminder.title} hatırlatıcısı aktif!',
-          payload: 'reminder_enabled',
-        );
+      if (isActive && _reminders[index].reminderDateTime.isAfter(DateTime.now())) {
+        // Aktif yapıldı - bildirim zamanla
+        await _scheduleNotification(_reminders[index]);
       } else {
-        await _notificationService.showInstantNotification(
-          id: 10201,
-          title: '🔕 Hatırlatıcı Devre Dışı',
-          body: '${reminder.title} hatırlatıcısı kapatıldı.',
-          payload: 'reminder_disabled',
-        );
+        // Pasif yapıldı - bildirimi iptal et
+        await _notificationService.cancelNotification(_getNotificationId(reminderId));
       }
       
       notifyListeners();
     }
   }
 
-  // Hatırlatma için bildirimleri zamanla
-  Future<void> _scheduleReminderNotifications(Reminder reminder) async {
-    if (!reminder.isActive) return;
-
-    final baseId = reminder.id.hashCode;
-    final now = DateTime.now();
-
+  // YENİ EKLENDİ: Bildirim zamanlama
+  Future<void> _scheduleNotification(Reminder reminder) async {
+    final notificationId = _getNotificationId(reminder.id);
+    
+    String title = _getNotificationTitle(reminder.type);
+    String body = reminder.title;
+    
     try {
-      switch (reminder.repeatInterval) {
-        case RepeatInterval.none:
-          // Tek seferlik hatırlatma
-          if (reminder.reminderDateTime.isAfter(now)) {
-            await _notificationService.scheduleNotification(
-              id: baseId,
-              title: reminder.title,
-              body: reminder.description ?? 'Hatırlatıcı zamanı!',
-              scheduledTime: reminder.reminderDateTime,
-              payload: 'reminder_${reminder.id}',
-            );
-          }
-          break;
-
-        case RepeatInterval.daily:
-          // Günlük hatırlatma - sonraki 30 günü zamanla
-          for (int i = 0; i < 30; i++) {
-            final scheduleDate = DateTime(
-              now.year,
-              now.month,
-              now.day + i,
-              reminder.reminderDateTime.hour,
-              reminder.reminderDateTime.minute,
-            );
-            
-            if (scheduleDate.isAfter(now)) {
-              await _notificationService.scheduleNotification(
-                id: baseId + i,
-                title: reminder.title,
-                body: reminder.description ?? 'Günlük hatırlatıcın!',
-                scheduledTime: scheduleDate,
-                payload: 'reminder_${reminder.id}',
-              );
-            }
-          }
-          break;
-
-        case RepeatInterval.weekly:
-          // Haftalık hatırlatma
-          if (reminder.customRepeatDays != null) {
-            for (int week = 0; week < 4; week++) {
-              for (int dayOfWeek in reminder.customRepeatDays!) {
-                final scheduleDate = _getNextWeekday(now, dayOfWeek, week);
-                final scheduledDateTime = DateTime(
-                  scheduleDate.year,
-                  scheduleDate.month,
-                  scheduleDate.day,
-                  reminder.reminderDateTime.hour,
-                  reminder.reminderDateTime.minute,
-                );
-                
-                if (scheduledDateTime.isAfter(now)) {
-                  await _notificationService.scheduleNotification(
-                    id: baseId + (week * 10) + dayOfWeek,
-                    title: reminder.title,
-                    body: reminder.description ?? 'Haftalık hatırlatıcın!',
-                    scheduledTime: scheduledDateTime,
-                    payload: 'reminder_${reminder.id}',
-                  );
-                }
-              }
-            }
-          }
-          break;
-
-        case RepeatInterval.monthly:
-          // Aylık hatırlatma - sonraki 12 ayı zamanla
-          for (int i = 0; i < 12; i++) {
-            final scheduleDate = DateTime(
-              now.year,
-              now.month + i,
-              reminder.reminderDateTime.day,
-              reminder.reminderDateTime.hour,
-              reminder.reminderDateTime.minute,
-            );
-            
-            if (scheduleDate.isAfter(now)) {
-              await _notificationService.scheduleNotification(
-                id: baseId + (i * 100),
-                title: reminder.title,
-                body: reminder.description ?? 'Aylık hatırlatıcın!',
-                scheduledTime: scheduleDate,
-                payload: 'reminder_${reminder.id}',
-              );
-            }
-          }
-          break;
-
-        case RepeatInterval.yearly:
-          // Yıllık hatırlatma - sonraki 5 yılı zamanla
-          for (int i = 0; i < 5; i++) {
-            final scheduleDate = DateTime(
-              now.year + i,
-              reminder.reminderDateTime.month,
-              reminder.reminderDateTime.day,
-              reminder.reminderDateTime.hour,
-              reminder.reminderDateTime.minute,
-            );
-            
-            if (scheduleDate.isAfter(now)) {
-              await _notificationService.scheduleNotification(
-                id: baseId + (i * 1000),
-                title: reminder.title,
-                body: reminder.description ?? 'Yıllık hatırlatıcın!',
-                scheduledTime: scheduleDate,
-                payload: 'reminder_${reminder.id}',
-              );
-            }
-          }
-          break;
-
-        case RepeatInterval.custom:
-          // Özel tekrar aralığı - haftalık gibi davran
-          if (reminder.customRepeatDays != null) {
-            for (int week = 0; week < 4; week++) {
-              for (int dayOfWeek in reminder.customRepeatDays!) {
-                final scheduleDate = _getNextWeekday(now, dayOfWeek, week);
-                final scheduledDateTime = DateTime(
-                  scheduleDate.year,
-                  scheduleDate.month,
-                  scheduleDate.day,
-                  reminder.reminderDateTime.hour,
-                  reminder.reminderDateTime.minute,
-                );
-                
-                if (scheduledDateTime.isAfter(now)) {
-                  await _notificationService.scheduleNotification(
-                    id: baseId + (week * 10) + dayOfWeek + 5000,
-                    title: reminder.title,
-                    body: reminder.description ?? 'Özel hatırlatıcın!',
-                    scheduledTime: scheduledDateTime,
-                    payload: 'reminder_${reminder.id}',
-                  );
-                }
-              }
-            }
-          }
-          break;
+      await _notificationService.scheduleNotification(
+        id: notificationId,
+        title: title,
+        body: body,
+        scheduledTime: reminder.reminderDateTime,
+        payload: 'reminder_${reminder.id}',
+      );
+      
+      print('✅ Hatırlatıcı bildirim zamanlandı: ${reminder.title} - ${reminder.reminderDateTime}');
+      
+      // YENİ: Bildirim zamanlama kontrolü
+      if (reminder.reminderDateTime.isBefore(DateTime.now().add(const Duration(minutes: 1)))) {
+        print('⚠️ Uyarı: Bildirim zamanı çok yakın veya geçmiş!');
+        
+        // Test için 5 saniye sonra bildirim gönder
+        await _notificationService.scheduleNotification(
+          id: notificationId + 1000,
+          title: '$title (Test)',
+          body: '$body - Test bildirimi (5 saniye sonra)',
+          scheduledTime: DateTime.now().add(const Duration(seconds: 5)),
+          payload: 'test_reminder_${reminder.id}',
+        );
+        print('🧪 Test bildirimi 5 saniye sonra zamanlandı');
       }
-
-      print('✅ ${reminder.title} için bildirimler zamanlandı');
     } catch (e) {
       print('❌ Bildirim zamanlama hatası: $e');
     }
   }
 
-  // Hatırlatma bildirimlerini iptal et
-  Future<void> _cancelReminderNotifications(Reminder reminder) async {
-    final baseId = reminder.id.hashCode;
-    
-    try {
-      // Farklı repeat interval'lara göre ID'leri iptal et
-      switch (reminder.repeatInterval) {
-        case RepeatInterval.none:
-          await _notificationService.cancelNotification(baseId);
-          break;
-        case RepeatInterval.daily:
-          for (int i = 0; i < 30; i++) {
-            await _notificationService.cancelNotification(baseId + i);
-          }
-          break;
-        case RepeatInterval.weekly:
-          for (int week = 0; week < 4; week++) {
-            for (int day = 1; day <= 7; day++) {
-              await _notificationService.cancelNotification(baseId + (week * 10) + day);
-            }
-          }
-          break;
-        case RepeatInterval.monthly:
-          for (int i = 0; i < 12; i++) {
-            await _notificationService.cancelNotification(baseId + (i * 100));
-          }
-          break;
-        case RepeatInterval.yearly:
-          for (int i = 0; i < 5; i++) {
-            await _notificationService.cancelNotification(baseId + (i * 1000));
-          }
-          break;
-        case RepeatInterval.custom:
-          for (int week = 0; week < 4; week++) {
-            for (int day = 1; day <= 7; day++) {
-              await _notificationService.cancelNotification(baseId + (week * 10) + day + 5000);
-            }
-          }
-          break;
-      }
+  // YENİ EKLENDİ: Bildirim ID'si oluşturma
+  int _getNotificationId(String reminderId) {
+    // String ID'yi int'e çevir (hash kullanarak)
+    return reminderId.hashCode.abs() % 100000; // 0-99999 arası
+  }
 
-      print('🗑️ ${reminder.title} bildirimleri iptal edildi');
-    } catch (e) {
-      print('❌ Bildirim iptal hatası: $e');
+  // YENİ EKLENDİ: Bildirim başlığı oluşturma
+  String _getNotificationTitle(ReminderType type) {
+    switch (type) {
+      case ReminderType.sport:
+        return '💪 Spor Zamanı!';
+      case ReminderType.water:
+        return '💧 Su İçme Hatırlatması';
+      case ReminderType.medication:
+        return '💊 İlaç Zamanı';
+      case ReminderType.general:
+        return '⏰ Hatırlatıcı';
     }
-  }
-
-  // Haftanın belirli gününü hesapla
-  DateTime _getNextWeekday(DateTime from, int weekday, int weekOffset) {
-    final daysUntilWeekday = (weekday - from.weekday + 7) % 7;
-    return from.add(Duration(days: daysUntilWeekday + (weekOffset * 7)));
-  }
-
-  // Test bildirimi gönder
-  Future<void> sendTestNotification() async {
-    await _notificationService.sendTestNotification();
   }
 
   // Belirli bir güne ait hatırlatmaları getiren yardımcı metod
@@ -341,57 +153,65 @@ class ReminderProvider with ChangeNotifier {
     return _reminders.where((reminder) {
       if (!reminder.isActive) return false;
 
-      switch (reminder.repeatInterval) {
-        case RepeatInterval.none:
-          return reminder.reminderDateTime.year == date.year &&
-                 reminder.reminderDateTime.month == date.month &&
-                 reminder.reminderDateTime.day == date.day;
-        case RepeatInterval.daily:
-          return true;
-        case RepeatInterval.weekly:
-          if (reminder.customRepeatDays != null) {
-            return reminder.customRepeatDays!.contains(date.weekday);
-          }
-          return false;
-        case RepeatInterval.monthly:
-          return reminder.reminderDateTime.day == date.day;
-        case RepeatInterval.yearly:
-          return reminder.reminderDateTime.month == date.month &&
-                 reminder.reminderDateTime.day == date.day;
-        case RepeatInterval.custom:
-          // Custom interval - haftalık gibi davran
-          if (reminder.customRepeatDays != null) {
-            return reminder.customRepeatDays!.contains(date.weekday);
-          }
-          return false;
+      // Tek seferlik hatırlatmalar
+      if (reminder.repeatInterval == RepeatInterval.none) {
+        return reminder.reminderDateTime.year == date.year &&
+               reminder.reminderDateTime.month == date.month &&
+               reminder.reminderDateTime.day == date.day;
       }
+      // Günlük hatırlatmalar
+      else if (reminder.repeatInterval == RepeatInterval.daily) {
+        return true; // Her gün geçerli
+      }
+      // Haftalık hatırlatmalar (belirli günlerde)
+      else if (reminder.repeatInterval == RepeatInterval.weekly && reminder.customRepeatDays != null) {
+        // Dart'ta Pazartesi 1, Pazar 7'dir. ISO hafta günü ile uyumlu.
+        // Reminder modelinde 1-7 (Pazartesi-Pazar) olarak kabul edelim.
+        // DateTime.weekday de 1-7 (Pazartesi-Pazar) döndürür.
+        return reminder.customRepeatDays!.contains(date.weekday);
+      }
+      // Aylık hatırlatmalar (ayın belirli günü)
+      else if (reminder.repeatInterval == RepeatInterval.monthly) {
+        return reminder.reminderDateTime.day == date.day;
+      }
+      // Yıllık hatırlatmalar
+      else if (reminder.repeatInterval == RepeatInterval.yearly) {
+        return reminder.reminderDateTime.month == date.month &&
+               reminder.reminderDateTime.day == date.day;
+      }
+      return false;
     }).toList();
   }
 
-  // Tüm verileri temizleme metodu
+  // YENİ EKLENDİ: Tüm hatırlatıcıları yeniden zamanla (uygulama başlarken)
+  Future<void> rescheduleAllNotifications() async {
+    for (final reminder in _reminders) {
+      if (reminder.isActive && reminder.reminderDateTime.isAfter(DateTime.now())) {
+        await _scheduleNotification(reminder);
+      }
+    }
+    print('🔄 Tüm hatırlatıcı bildirimleri yeniden zamanlandı');
+  }
+
+  // YENİ EKLENDİ: Test bildirimi gönder
+  Future<void> sendTestNotification() async {
+    await _notificationService.showInstantNotification(
+      id: 99999,
+      title: '🧪 Test Hatırlatıcısı',
+      body: 'Hatırlatıcı bildirimleri çalışıyor! ✅',
+      payload: 'test_reminder',
+    );
+  }
+
+  // Tüm verileri temizleme metodu (geliştirme için faydalı olabilir)
   Future<void> clearAllReminders() async {
     // Tüm bildirimleri iptal et
     for (final reminder in _reminders) {
-      await _cancelReminderNotifications(reminder);
+      await _notificationService.cancelNotification(_getNotificationId(reminder.id));
     }
     
     _reminders.clear();
     await _prefs.remove('reminders');
     notifyListeners();
-  }
-
-  // Yaklaşan hatırlatmaları getir (bugünden itibaren 7 gün)
-  List<Reminder> getUpcomingReminders() {
-    final now = DateTime.now();
-    
-    List<Reminder> upcoming = [];
-    
-    for (int i = 0; i < 7; i++) {
-      final checkDate = now.add(Duration(days: i));
-      final dayReminders = getRemindersForDay(checkDate);
-      upcoming.addAll(dayReminders);
-    }
-    
-    return upcoming;
   }
 }

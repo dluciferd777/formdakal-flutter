@@ -1,8 +1,9 @@
-// lib/services/permission_service.dart - COMPREHENSIVE PERMISSION MANAGER
+// lib/services/permission_service.dart - SADECE TEK SEFERLİK İZİN DÜZELTMESİ
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum PermissionType {
   notification,
@@ -18,15 +19,18 @@ class PermissionService {
   factory PermissionService() => _instance;
   PermissionService._internal();
 
-  // Permission status cache
   final Map<PermissionType, PermissionStatus> _permissionCache = {};
   bool _isInitialized = false;
+  SharedPreferences? _prefs;
 
-  /// Initialize permission service
+  // Tek seferlik izin kontrolü için
+  static const String _sensorPermissionAsked = 'sensor_permission_asked';
+
   Future<void> init() async {
     if (_isInitialized) return;
     
     try {
+      _prefs = await SharedPreferences.getInstance();
       await _checkAllPermissions();
       _isInitialized = true;
       debugPrint('✅ Permission service initialized');
@@ -35,7 +39,6 @@ class PermissionService {
     }
   }
 
-  /// Check all required permissions
   Future<void> _checkAllPermissions() async {
     final permissions = [
       PermissionType.notification,
@@ -50,7 +53,6 @@ class PermissionService {
     }
   }
 
-  /// Get permission status for a specific type
   Future<PermissionStatus> _getPermissionStatus(PermissionType type) async {
     try {
       switch (type) {
@@ -59,12 +61,11 @@ class PermissionService {
         case PermissionType.sensors:
           return Platform.isAndroid 
               ? await Permission.sensors.status 
-              : PermissionStatus.granted; // iOS doesn't need sensor permission
+              : PermissionStatus.granted;
         case PermissionType.storage:
           if (Platform.isAndroid) {
             final androidInfo = await _getAndroidVersion();
             if (androidInfo >= 33) {
-              // Android 13+ uses specific media permissions
               return await Permission.photos.status;
             } else {
               return await Permission.storage.status;
@@ -86,155 +87,88 @@ class PermissionService {
     }
   }
 
-  /// Get Android version
   Future<int> _getAndroidVersion() async {
     if (!Platform.isAndroid) return 0;
     
     try {
-      final version = await _getSystemVersion();
+      final version = Platform.operatingSystemVersion;
       return int.tryParse(version.split('.').first) ?? 0;
     } catch (e) {
       return 0;
     }
   }
 
-  /// Get system version
-  Future<String> _getSystemVersion() async {
-    try {
-      if (Platform.isAndroid) {
-        return Platform.operatingSystemVersion;
-      }
-      return Platform.operatingSystemVersion;
-    } catch (e) {
-      return '0';
-    }
-  }
-
-  /// Request permission with user-friendly dialog
-  Future<PermissionStatus> requestPermission(
-    BuildContext context,
-    PermissionType type, {
-    String? customMessage,
-  }) async {
-    try {
-      // Check current status
-      final currentStatus = await _getPermissionStatus(type);
+  // TEK SEFERLİK İZİN İSTEME - SADECE SENSÖR İÇİN
+  Future<bool> requestEssentialPermissions(BuildContext context) async {
+    // Sensor permission'ı sadece bir kez iste
+    bool alreadyAsked = _prefs?.getBool(_sensorPermissionAsked) ?? false;
+    
+    if (!alreadyAsked) {
+      final sensorStatus = await _getPermissionStatus(PermissionType.sensors);
       
-      if (currentStatus == PermissionStatus.granted) {
-        return currentStatus;
+      if (sensorStatus != PermissionStatus.granted) {
+        await _requestSensorPermission(context);
+        await _prefs?.setBool(_sensorPermissionAsked, true);
       }
-
-      // Show rationale if needed
-      if (currentStatus == PermissionStatus.denied) {
-        final shouldRequest = await _showPermissionRationale(context, type, customMessage);
-        if (!shouldRequest) {
-          return currentStatus;
-        }
-      }
-
-      // Handle permanently denied
-      if (currentStatus == PermissionStatus.permanentlyDenied) {
-        await _showSettingsDialog(context, type);
-        return currentStatus;
-      }
-
-      // Request permission
-      final newStatus = await _requestPermissionDirect(type);
-      _permissionCache[type] = newStatus;
-
-      // Show result feedback
-      await _showPermissionResult(context, type, newStatus);
-
-      return newStatus;
-    } catch (e) {
-      debugPrint('❌ Permission request error: $e');
-      return PermissionStatus.denied;
     }
+    
+    return true;
   }
 
-  /// Direct permission request
-  Future<PermissionStatus> _requestPermissionDirect(PermissionType type) async {
-    switch (type) {
-      case PermissionType.notification:
-        return await Permission.notification.request();
-      case PermissionType.sensors:
-        return Platform.isAndroid 
+  Future<void> _requestSensorPermission(BuildContext context) async {
+    try {
+      final shouldRequest = await _showSensorPermissionDialog(context);
+      
+      if (shouldRequest) {
+        final status = Platform.isAndroid 
             ? await Permission.sensors.request()
             : PermissionStatus.granted;
-      case PermissionType.storage:
-        if (Platform.isAndroid) {
-          final androidVersion = await _getAndroidVersion();
-          if (androidVersion >= 33) {
-            return await Permission.photos.request();
-          }
+            
+        _permissionCache[PermissionType.sensors] = status;
+        
+        if (status == PermissionStatus.granted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Sensör izni verildi - Adım sayar aktif'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
         }
-        return await Permission.storage.request();
-      case PermissionType.camera:
-        return await Permission.camera.request();
-      case PermissionType.location:
-        return await Permission.location.request();
-      case PermissionType.scheduleExactAlarm:
-        return Platform.isAndroid 
-            ? await Permission.scheduleExactAlarm.request()
-            : PermissionStatus.granted;
+      }
+    } catch (e) {
+      debugPrint('❌ Sensor permission error: $e');
     }
   }
 
-  /// Show permission rationale dialog
-  Future<bool> _showPermissionRationale(
-    BuildContext context,
-    PermissionType type,
-    String? customMessage,
-  ) async {
-    final info = _getPermissionInfo(type);
-    
+  Future<bool> _showSensorPermissionDialog(BuildContext context) async {
     return await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+        title: const Row(
           children: [
-            Icon(info.icon, color: info.color, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '${info.title} İzni',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
+            Icon(Icons.sensors, color: Colors.green, size: 28),
+            SizedBox(width: 12),
+            Text('Sensör İzni'),
           ],
         ),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              customMessage ?? info.description,
-              style: const TextStyle(fontSize: 16, height: 1.5),
+              'Adım sayısını otomatik olarak takip etmek için hareket sensörü izni gerekiyor.',
+              style: TextStyle(fontSize: 16, height: 1.5),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: info.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: info.color, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      info.benefit,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: info.color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+            SizedBox(height: 16),
+            Text(
+              '💪 Otomatik adım takibi ile fitness hedeflerinizi kolayca takip edin!',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.green,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -242,7 +176,7 @@ class PermissionService {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('İptal'),
+            child: const Text('Geç'),
           ),
           ElevatedButton(
             onPressed: () {
@@ -256,197 +190,14 @@ class PermissionService {
     ) ?? false;
   }
 
-  /// Show settings dialog for permanently denied permissions
-  Future<void> _showSettingsDialog(BuildContext context, PermissionType type) async {
-    final info = _getPermissionInfo(type);
-    
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.settings, color: Colors.orange, size: 28),
-            const SizedBox(width: 12),
-            const Text('Ayarlar Gerekli'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${info.title} izni kalıcı olarak reddedildi. Bu özelliği kullanmak için ayarlardan izin vermeniz gerekiyor.',
-              style: const TextStyle(fontSize: 16, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.touch_app, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Ayarlar > ${info.title} > İzin Ver',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.orange,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.of(context).pop();
-              openAppSettings();
-            },
-            child: const Text('Ayarları Aç'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Show permission result feedback
-  Future<void> _showPermissionResult(
-    BuildContext context,
-    PermissionType type,
-    PermissionStatus status,
-  ) async {
-    final info = _getPermissionInfo(type);
-    
-    if (status == PermissionStatus.granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Text('${info.title} izni verildi'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  /// Get permission information
-  PermissionInfo _getPermissionInfo(PermissionType type) {
-    switch (type) {
-      case PermissionType.notification:
-        return PermissionInfo(
-          title: 'Bildirim',
-          description: 'Hatırlatıcılar ve motivasyon mesajları göndermek için bildirim izni gerekiyor.',
-          benefit: 'Hedeflerinizi kaçırmayın!',
-          icon: Icons.notifications,
-          color: Colors.blue,
-        );
-      case PermissionType.sensors:
-        return PermissionInfo(
-          title: 'Sensör',
-          description: 'Adım sayısını otomatik olarak takip etmek için hareket sensörü izni gerekiyor.',
-          benefit: 'Otomatik adım takibi',
-          icon: Icons.sensors,
-          color: Colors.green,
-        );
-      case PermissionType.storage:
-        return PermissionInfo(
-          title: 'Depolama',
-          description: 'Fotoğraflarınızı kaydetmek ve ilerleme resimlerini yönetmek için depolama izni gerekiyor.',
-          benefit: 'Fotoğraf kaydetme',
-          icon: Icons.photo_library,
-          color: Colors.purple,
-        );
-      case PermissionType.camera:
-        return PermissionInfo(
-          title: 'Kamera',
-          description: 'İlerleme fotoğrafları çekmek için kamera izni gerekiyor.',
-          benefit: 'İlerlemenizi görsel olarak takip edin',
-          icon: Icons.camera_alt,
-          color: Colors.orange,
-        );
-      case PermissionType.location:
-        return PermissionInfo(
-          title: 'Konum',
-          description: 'Dış mekan aktivitelerinizi takip etmek için konum izni gerekiyor.',
-          benefit: 'GPS tabanlı aktivite takibi',
-          icon: Icons.location_on,
-          color: Colors.red,
-        );
-      case PermissionType.scheduleExactAlarm:
-        return PermissionInfo(
-          title: 'Zamanlanmış Bildirim',
-          description: 'Tam zamanında hatırlatma bildirimleri göndermek için bu izin gerekiyor.',
-          benefit: 'Kesin zamanlı hatırlatmalar',
-          icon: Icons.alarm,
-          color: Colors.indigo,
-        );
-    }
-  }
-
-  /// Check if permission is granted
   bool isPermissionGranted(PermissionType type) {
     return _permissionCache[type] == PermissionStatus.granted;
   }
 
-  /// Get all permission statuses
   Map<PermissionType, PermissionStatus> getAllPermissionStatuses() {
     return Map.from(_permissionCache);
   }
 
-  /// Request multiple permissions
-  Future<Map<PermissionType, PermissionStatus>> requestMultiplePermissions(
-    BuildContext context,
-    List<PermissionType> permissions,
-  ) async {
-    final results = <PermissionType, PermissionStatus>{};
-    
-    for (final permission in permissions) {
-      final status = await requestPermission(context, permission);
-      results[permission] = status;
-    }
-    
-    return results;
-  }
-
-  /// Essential permissions for the app
-  Future<bool> requestEssentialPermissions(BuildContext context) async {
-    final essentialPermissions = [
-      PermissionType.notification,
-      PermissionType.sensors,
-    ];
-
-    final results = await requestMultiplePermissions(context, essentialPermissions);
-    
-    // Check if all essential permissions are granted
-    return results.values.every((status) => status == PermissionStatus.granted);
-  }
-
-  /// Refresh permission cache
-  Future<void> refreshPermissions() async {
-    await _checkAllPermissions();
-  }
-
-  /// Get permission status text for UI
   String getPermissionStatusText(PermissionType type) {
     final status = _permissionCache[type];
     switch (status) {
@@ -466,21 +217,10 @@ class PermissionService {
         return 'Bilinmiyor';
     }
   }
-}
 
-/// Permission information class
-class PermissionInfo {
-  final String title;
-  final String description;
-  final String benefit;
-  final IconData icon;
-  final Color color;
-
-  PermissionInfo({
-    required this.title,
-    required this.description,
-    required this.benefit,
-    required this.icon,
-    required this.color,
-  });
+  // Test için - izin geçmişini sıfırla
+  Future<void> resetPermissionHistory() async {
+    await _prefs?.remove(_sensorPermissionAsked);
+    debugPrint('🔄 Permission history reset');
+  }
 }

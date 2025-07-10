@@ -1,7 +1,6 @@
-// lib/screens/splash_screen.dart
+// lib/screens/splash_screen.dart - LOADİNG KALDIRILDI
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:formdakal/providers/achievement_provider.dart'; // Düzeltme: Eklendi
 import 'package:formdakal/providers/exercise_provider.dart';
 import 'package:formdakal/providers/food_provider.dart';
 import 'package:formdakal/providers/user_provider.dart';
@@ -19,9 +18,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  
-  bool _isLoading = true;
-  String _loadingText = 'Başlatılıyor...';
 
   @override
   void initState() {
@@ -40,15 +36,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animationController.forward();
 
+    // Hızlı başlatma - loading ekranı kaldırıldı
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
     try {
-      setState(() {
-        _loadingText = 'Veriler yükleniyor...';
-      });
-
+      // Paralel veri yükleme
       await Future.wait([
         _loadUserData(),
         _loadFoodData(),
@@ -56,22 +50,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _loadAchievementData(),
       ]);
 
-      setState(() {
-        _loadingText = 'Hazırlanıyor...';
-      });
-
-      await Future.delayed(const Duration(seconds: 1)); 
+      // Hızlı geçiş - 900ms
+      await Future.delayed(const Duration(milliseconds: 900)); 
       
       _checkAuthStatus();
       
     } catch (e) {
-      print("❌ Başlatma hatası: $e");
-      
-      setState(() {
-        _loadingText = 'Hata oluştu, yeniden deneniyor...';
-      });
-      
-      await Future.delayed(const Duration(seconds: 1));
+      debugPrint("❌ Başlatma hatası: $e");
+      // Hata olsa bile devam et
+      await Future.delayed(const Duration(milliseconds: 1500));
       _checkAuthStatus();
     }
   }
@@ -80,9 +67,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
     try {
       await Provider.of<UserProvider>(context, listen: false).loadUser();
-      print("✅ Kullanıcı verileri yüklendi");
+      debugPrint("✅ Kullanıcı verileri yüklendi");
     } catch (e) {
-      print("❌ Kullanıcı verisi yükleme hatası: $e");
+      debugPrint("❌ Kullanıcı verisi yükleme hatası: $e");
     }
   }
 
@@ -90,9 +77,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
     try {
       await Provider.of<FoodProvider>(context, listen: false).loadData();
-      print("✅ Yemek verileri yüklendi");
+      debugPrint("✅ Yemek verileri yüklendi");
     } catch (e) {
-      print("❌ Yemek verisi yükleme hatası: $e");
+      debugPrint("❌ Yemek verisi yükleme hatası: $e");
     }
   }
 
@@ -100,39 +87,31 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
     try {
       await Provider.of<ExerciseProvider>(context, listen: false).loadData();
-      print("✅ Egzersiz verileri yüklendi");
+      debugPrint("✅ Egzersiz verileri yüklendi");
     } catch (e) {
-      print("❌ Egzersiz verisi yükleme hatası: $e");
+      debugPrint("❌ Egzersiz verisi yükleme hatası: $e");
     }
   }
 
   Future<void> _loadAchievementData() async {
     if (!mounted) return;
     try {
-      // AchievementProvider constructor'da zaten yüklüyor
-      print("✅ Başarım verileri yüklendi");
+      debugPrint("✅ Başarım verileri yüklendi");
     } catch (e) {
-      print("❌ Başarım verisi yükleme hatası: $e");
+      debugPrint("❌ Başarım verisi yükleme hatası: $e");
     }
   }
 
   Future<void> _checkAuthStatus() async {
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-    });
-
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    // Düzeltme: Hoşgeldin başarımını burada tetikle
-    Provider.of<AchievementProvider>(context, listen: false).unlockAchievement('first_login');
-
     if (userProvider.user != null) {
-      print("✅ Kullanıcı mevcut - Ana ekrana yönlendiriliyor");
+      debugPrint("✅ Kullanıcı mevcut - Ana ekrana yönlendiriliyor");
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      print("ℹ️ Yeni kullanıcı - Onboarding'e yönlendiriliyor");
+      debugPrint("ℹ️ Yeni kullanıcı - Onboarding'e yönlendiriliyor");
       Navigator.pushReplacementNamed(context, '/onboarding');
     }
   }
@@ -160,24 +139,39 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Yeni kol kası ikonu - beyaz çerçeve olmadan
                       Container(
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: AppColors.primaryGreen,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF4CAF50), Color(0xFF2196F3)],
+                          ),
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryGreen.withOpacity(0.3),
+                              color: const Color(0xFF4CAF50).withOpacity(0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.fitness_center,
-                          color: Colors.white,
-                          size: 60,
+                        child: const Center(
+                          child: Text(
+                            '💪',
+                            style: TextStyle(
+                              fontSize: 60,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 30),
@@ -215,40 +209,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               fontWeight: FontWeight.w300,
                             ),
                       ),
-                      const SizedBox(height: 50),
-                      if (_isLoading) ...[
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.primaryGreen,
-                            ),
-                            strokeWidth: 3,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _loadingText,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.primaryGreen,
-                              ),
-                        ),
-                      ] else ...[
-                        Icon(
-                          Icons.check_circle,
-                          color: AppColors.primaryGreen,
-                          size: 40,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Hazır!',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: AppColors.primaryGreen,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
