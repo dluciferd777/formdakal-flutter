@@ -14,14 +14,14 @@ class AppTheme {
     
     // GÜÇLÜ APPBAR AYARLARI - TÜM SAYFALARDA GEÇERLİ
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.primaryGreen, // HER ZAMAN YEŞİL
+      backgroundColor: AppColors.primaryGreen, // AÇIK TEMADA HER ZAMAN YEŞİL
       foregroundColor: Colors.white, // HER ZAMAN BEYAZ
       surfaceTintColor: AppColors.primaryGreen, // Material 3 için
       elevation: 2,
       centerTitle: true,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Status bar beyaz
+        statusBarIconBrightness: Brightness.dark, // AÇIK TEMADA SİYAH İKONLAR
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
@@ -87,14 +87,14 @@ class AppTheme {
     
     // GÜÇLÜ APPBAR AYARLARI - TÜM SAYFALARDA GEÇERLİ
     appBarTheme: AppBarTheme(
-      backgroundColor: AppColors.darkSurface, // KOYU TEMADA SİYAH
+      backgroundColor: AppColors.darkSurface, // KOYU TEMADA HER ZAMAN SİYAH
       foregroundColor: Colors.white, // HER ZAMAN BEYAZ
       surfaceTintColor: AppColors.darkSurface, // Material 3 için
       elevation: 0,
       centerTitle: true,
       systemOverlayStyle: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Status bar beyaz
+        statusBarIconBrightness: Brightness.light, // KOYU TEMADA BEYAZ İKONLAR
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
@@ -174,7 +174,7 @@ class AppTheme {
       bottom: bottom,
       systemOverlayStyle: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark, // Dinamik olarak ayarlandı
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
       ),

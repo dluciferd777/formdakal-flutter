@@ -59,6 +59,8 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    // Status bar yüksekliğini alarak profil alanının üst boşluğunu ayarla
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     return SizedBox(
       width: 240, // Drawer genişliğini küçülttük
@@ -77,8 +79,9 @@ class _CustomDrawerState extends State<CustomDrawer> with SingleTickerProviderSt
                 final double progress = (dailyBurnedCalories / calorieGoal).clamp(0.0, 1.0);
 
                 return Container(
-                  height: 140, // Header yüksekliğini küçülttük
-                  padding: const EdgeInsets.fromLTRB(12, 24, 8, 12), // Padding'leri küçülttük
+                  // Header yüksekliğini ve üst padding'i status bar'a göre ayarla
+                  height: 140 + statusBarHeight, 
+                  padding: EdgeInsets.fromLTRB(12, 24 + statusBarHeight, 8, 12), // Top padding'e status bar yüksekliği eklendi
                   decoration: const BoxDecoration(
                     color: AppColors.primaryGreen,
                   ),

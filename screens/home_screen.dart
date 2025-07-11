@@ -36,16 +36,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // Sistem UI rengini dinamik olarak ayarla
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
-      ),
-    );
+    // Sistem UI rengini dinamik olarak ayarla - Bu kısım kaldırıldı, ThemeProvider yönetecek.
+    // SystemChrome.setSystemUIOverlayStyle(
+    //   SystemUiOverlayStyle(
+    //     statusBarColor: Colors.transparent,
+    //     systemNavigationBarColor: Colors.transparent,
+    //     systemNavigationBarDividerColor: Colors.transparent,
+    //     statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+    //     systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+    //   ),
+    // );
 
     return Scaffold(
       key: _scaffoldKey,

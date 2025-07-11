@@ -7,6 +7,7 @@ import '../models/weight_history_model.dart';
 import '../providers/user_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../services/native_step_counter_service.dart'; // NativeStepCounterService import edildi
 import '../utils/colors.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
       backgroundColor: isDarkMode ? const Color(0xFF121212) : Colors.grey[50],
       appBar: AppBar(
         title: const Text('Raporlar ve Grafikler'),
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen, // Temaya göre renk
         foregroundColor: Colors.white,
         elevation: 0,
         bottom: TabBar(
@@ -206,8 +207,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
   }
 
   Widget _buildActivityChart() {
-    return Consumer<ExerciseProvider>(
-      builder: (context, exerciseProvider, child) {
+    return Consumer2<ExerciseProvider, NativeStepCounterService>( // NativeStepCounterService eklendi
+      builder: (context, exerciseProvider, stepService, child) { // stepService parametresi eklendi
         // Aktivite verilerini topla
         final now = DateTime.now();
         final startDate = now.subtract(Duration(days: _selectedDays));
@@ -217,8 +218,8 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         
         for (int i = 0; i <= _selectedDays; i++) {
           final date = startDate.add(Duration(days: i));
-          // Not: Adım sayısı henüz tarihe göre çalışmıyor, geliştirilebilir
-          final steps = i == _selectedDays ? exerciseProvider.dailySteps : 0;
+          // Adım sayısı NativeStepCounterService'ten alınacak
+          final steps = stepService.dailySteps; // stepService.dailySteps kullanıldı
           final calories = exerciseProvider.getDailyBurnedCalories(date);
           
           stepsSpots.add(FlSpot(i.toDouble(), steps.toDouble()));

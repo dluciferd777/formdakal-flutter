@@ -16,7 +16,7 @@ class AchievementsScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen, // Temaya göre renk
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -154,7 +154,7 @@ class AchievementsScreen extends StatelessWidget {
                           crossAxisCount: 2,
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
-                          childAspectRatio: 0.9, // Biraz daha dikdörtgen
+                          childAspectRatio: 0.9, // Kart boyutunu daha kareye yakın hale getirdik
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) => _buildAchievementCard(unlockedAchievements[index], true),
@@ -175,7 +175,7 @@ class AchievementsScreen extends StatelessWidget {
                           crossAxisCount: 2,
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
-                          childAspectRatio: 0.9,
+                          childAspectRatio: 0.9, // Kart boyutunu daha kareye yakın hale getirdik
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) => _buildAchievementCard(lockedAchievements[index], false),
@@ -258,25 +258,25 @@ class AchievementsScreen extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(12.0), // Padding'i biraz artırdık
           child: Column(
             children: [
               // İkon kısmı - sabit boyut
               Container(
-                height: 50,
-                width: 50,
+                height: 48, // Boyutu biraz büyüttük
+                width: 48, // Boyutu biraz büyüttük
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.2),
                 ),
                 child: Icon(
                   isUnlocked ? achievement.icon : Icons.lock_outline,
-                  size: 28,
+                  size: 26, // İkon boyutunu biraz büyüttük
                   color: Colors.white.withOpacity(isUnlocked ? 1.0 : 0.7),
                 ),
               ),
               
-              const SizedBox(height: 8),
+              const SizedBox(height: 8), // Boşluğu artırdık
               
               // Başlık - Expanded ile esnek alan
               Expanded(
@@ -289,7 +289,7 @@ class AchievementsScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 12, // Font boyutunu artırdık
                   ),
                 ),
               ),
@@ -304,7 +304,7 @@ class AchievementsScreen extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withOpacity(isUnlocked ? 0.9 : 0.6),
-                    fontSize: 10,
+                    fontSize: 9, // Font boyutunu artırdık
                   ),
                 ),
               ),
@@ -312,16 +312,16 @@ class AchievementsScreen extends StatelessWidget {
               // Durum göstergesi
               if (isUnlocked)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Padding'i artırdık
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10), // Yuvarlaklığı artırdık
                   ),
                   child: const Text(
                     'Tamamlandı',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 8,
+                      fontSize: 8, // Font boyutunu artırdık
                       fontWeight: FontWeight.bold,
                     ),
                   ),

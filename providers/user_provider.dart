@@ -68,6 +68,7 @@ class UserProvider with ChangeNotifier {
     // Bağımlılık olarak enjekte edilen _achievementProvider kullanılıyor.
     if (isFirstSave) {
       _achievementProvider.unlockAchievement('profile_complete');
+      _achievementProvider.unlockAchievement('first_login'); // İlk giriş başarımı eklendi
     }
   }
 

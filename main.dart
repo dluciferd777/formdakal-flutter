@@ -37,7 +37,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// GLOBAL INSTANCE - Singleton'ı global olarak tanımla
+// GLOBAL INSTANCE: NativeStepCounterService'i burada tanımlıyoruz
 final NativeStepCounterService stepCounterService = NativeStepCounterService();
 
 Future<void> requestEssentialPermissions() async {
@@ -69,18 +69,11 @@ void main() async {
   
   await requestEssentialPermissions();
   
-  // GLOBAL INSTANCE'I BAŞLAT
-  await stepCounterService.initialize();
   await NotificationService().init(); 
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-    ),
-  );
-  
+  // NativeStepCounterService'i runApp'tan önce başlat ve verilerini yükle
+  await stepCounterService.initialize(); // Bu satır eklendi ve await kullanıldı
+
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
     overlays: [SystemUiOverlay.top],
@@ -127,23 +120,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => ProgressPhotoProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AchievementProvider(widget.prefs)),
         
-        // DÜZELTİLDİ: Global instance kullan
+        // NativeStepCounterService'in başlatılmış örneğini sağlıyoruz
         ChangeNotifierProvider.value(value: stepCounterService),
         
         ChangeNotifierProxyProvider<AchievementProvider, UserProvider>(
           create: (context) => UserProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
           update: (_, achievement, previous) => previous!..updateDependencies(achievement),
         ),
-        ChangeNotifierProxyProvider<AchievementProvider, FoodProvider>(
-          create: (context) => FoodProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
-          update: (_, achievement, previous) => previous!..updateDependencies(achievement),
-        ),
-        ChangeNotifierProxyProvider2<AchievementProvider, UserProvider, ExerciseProvider>(
+        ChangeNotifierProxyProvider3<AchievementProvider, UserProvider, NativeStepCounterService, ExerciseProvider>(
           create: (context) => ExerciseProvider(widget.prefs,
             Provider.of<AchievementProvider>(context, listen: false),
             Provider.of<UserProvider>(context, listen: false),
+            Provider.of<NativeStepCounterService>(context, listen: false),
           ),
-          update: (_, achievement, user, previous) => previous!..updateDependencies(achievement, user),
+          update: (_, achievement, user, nativeStepCounterService, previous) => previous!..updateDependencies(achievement, user, nativeStepCounterService),
+        ),
+        ChangeNotifierProxyProvider<AchievementProvider, FoodProvider>(
+          create: (context) => FoodProvider(widget.prefs, Provider.of<AchievementProvider>(context, listen: false)),
+          update: (_, achievement, previous) => previous!..updateDependencies(achievement),
         ),
         ChangeNotifierProxyProvider3<AchievementProvider, UserProvider, ExerciseProvider, WorkoutPlanProvider>(
           create: (context) => WorkoutPlanProvider(widget.prefs,

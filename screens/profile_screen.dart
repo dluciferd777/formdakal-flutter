@@ -196,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return Scaffold(
       // TUTARLI APPBAR - Yeşil arka plan, beyaz metin/ikonlar
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurface : AppColors.primaryGreen, // Temaya göre renk
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -287,6 +287,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     // Temel bilgiler bölümü
                     _buildSectionHeader('Temel Bilgiler'),
                     const SizedBox(height: 16),
+                    // YENİ UYARI METNİ
+                    Text(
+                      'Doğru ve kişiselleştirilmiş kalori hesaplamaları, MET değerleri ve fitness takibi için lütfen bilgilerinizi eksiksiz ve doğru girdiğinizden emin olun. Sağlıklı hedeflerinize ulaşmanızda bu veriler kritik öneme sahiptir. 🎯',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.info, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 16), // Uyarı sonrası boşluk
                     _buildTextField(controller: _nameController, label: 'Ad Soyad', icon: Icons.person),
                     const SizedBox(height: 16),
                     Row(

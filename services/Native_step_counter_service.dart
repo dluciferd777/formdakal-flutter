@@ -1,7 +1,7 @@
 // lib/services/native_step_counter_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Sadece SystemChannels için tutuldu
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NativeStepCounterService extends ChangeNotifier {
@@ -9,29 +9,28 @@ class NativeStepCounterService extends ChangeNotifier {
   factory NativeStepCounterService() => _instance;
   NativeStepCounterService._internal();
 
-  // Platform Channels - Android native ile iletişim
+  // Platform Channels (Artık EventChannel kullanılmayacak)
   static const MethodChannel _methodChannel = MethodChannel('com.formdakal/native_step_counter');
-  static const EventChannel _eventChannel = EventChannel('com.formdakal/native_step_stream');
-  
-  // Stream subscription
-  StreamSubscription<dynamic>? _nativeStepStream;
   
   // Adım verileri
-  int _totalSteps = 0;
   int _dailySteps = 0;
-  int _baseStepCount = 0;
+  int _totalSteps = 0;
+  int _baseStepCount = 0; // Native servisin başlangıç adımı
   bool _isActive = false;
   bool _isNativeSensorAvailable = false;
-  bool _isWalking = false;
-  DateTime _lastStepTime = DateTime.now();
-  DateTime _todayDate = DateTime.now();
-  
-  // Getters
-  int get totalSteps => _totalSteps;
+  DateTime _todayDate = DateTime.now(); // Native tarafından yönetilen gün başlangıcı
+
+  Timer? _updateTimer; // Periyodik güncelleme için timer
+
+  // SharedPreferences anahtarları (Kotlin servisi ile aynı olmalı)
+  static const String _keyDailySteps = "daily_steps";
+  static const String _keyTotalSteps = "total_steps";
+  static const String _keyInitialCount = "initial_count";
+  static const String _keyLastDate = "last_date";
+
+  // dailySteps getter'ı
   int get dailySteps => _dailySteps;
-  bool get isActive => _isActive;
-  bool get isNativeSensorAvailable => _isNativeSensorAvailable;
-  bool get isWalking => _isWalking;
+
 
   /// Native adım sayacı servisini başlat
   Future<void> initialize() async {
@@ -43,30 +42,30 @@ class NativeStepCounterService extends ChangeNotifier {
       
       if (!_isNativeSensorAvailable) {
         print('❌ Native TYPE_STEP_COUNTER sensörü bulunamadı');
+        _isActive = false;
+        notifyListeners();
         return;
       }
       
-      // Kaydedilmiş verileri yükle
+      // Kaydedilmiş verileri yükle (ilk yükleme)
       await _loadSavedData();
       
-      // Native event stream'i dinlemeye başla
-      _startNativeEventStream();
-      
-      // Native step counter'ı başlat
-      await _startNativeStepCounter();
-      
-      // Background service'i başlat
+      // Native arka plan servisini başlat
       await _startBackgroundService();
       
       _isActive = true;
       notifyListeners();
       
+      // Periyodik olarak adım verilerini güncelle
+      _startUpdateTimer();
+      
       print('✅ Native step counter başarıyla başlatıldı');
-      print('📊 Mevcut günlük adım: $_dailySteps');
+      print('📊 Mevcut günlük adım (init): $_dailySteps');
       
     } catch (e) {
       print('❌ Native step counter başlatma hatası: $e');
       _isActive = false;
+      notifyListeners();
     }
   }
 
@@ -81,16 +80,6 @@ class NativeStepCounterService extends ChangeNotifier {
     }
   }
 
-  /// Native step counter'ı başlat
-  Future<void> _startNativeStepCounter() async {
-    try {
-      await _methodChannel.invokeMethod('startStepCounter');
-      print('✅ Native TYPE_STEP_COUNTER sensörü başlatıldı');
-    } catch (e) {
-      print('❌ Native step counter başlatma hatası: $e');
-    }
-  }
-
   /// Background service başlat (START_STICKY)
   Future<void> _startBackgroundService() async {
     try {
@@ -101,160 +90,34 @@ class NativeStepCounterService extends ChangeNotifier {
     }
   }
 
-  /// Native event stream dinlemeyi başlat
-  void _startNativeEventStream() {
-    _nativeStepStream = _eventChannel.receiveBroadcastStream().listen(
-      (dynamic event) {
-        _handleNativeStepEvent(event);
-      },
-      onError: (error) {
-        print('❌ Native step stream hatası: $error');
-      },
-      onDone: () {
-        print('⚠️ Native step stream kapandı');
-      },
-    );
-  }
-
-  /// Native'den gelen step event'lerini işle
-  void _handleNativeStepEvent(dynamic event) {
-    if (event is Map<String, dynamic>) {
-      final eventType = event['type'] as String?;
-      
-      switch (eventType) {
-        case 'STEP_COUNTER':
-          _handleStepCounterEvent(event);
-          break;
-        case 'STEP_DETECTOR':
-          _handleStepDetectorEvent(event);
-          break;
-        case 'WALKING_STATUS':
-          _handleWalkingStatusEvent(event);
-          break;
-        case 'ERROR':
-          _handleErrorEvent(event);
-          break;
-      }
-    }
-  }
-
-  /// TYPE_STEP_COUNTER sensöründen gelen veriyi işle
-  void _handleStepCounterEvent(Map<String, dynamic> event) {
-    final totalStepsSinceBoot = event['totalSteps'] as int? ?? 0;
-    final timestamp = event['timestamp'] as int? ?? 0;
-    
-    // Yeni gün kontrolü
-    final eventTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    if (_isNewDay(eventTime)) {
-      _resetForNewDay();
-    }
-    
-    // İlk başlatma: base step count ayarla
-    if (_baseStepCount == 0) {
-      _baseStepCount = totalStepsSinceBoot;
-      print('📊 Base step count ayarlandı: $_baseStepCount');
-    }
-    
-    // Telefon yeniden başladıysa (step count düştü)
-    if (totalStepsSinceBoot < _baseStepCount) {
-      print('🔄 Telefon yeniden başladı, base sıfırlanıyor');
-      _baseStepCount = 0;
-    }
-    
-    // Günlük adımları hesapla
-    final newDailySteps = totalStepsSinceBoot - _baseStepCount;
-    
-    if (newDailySteps != _dailySteps && newDailySteps >= 0) {
-      _dailySteps = newDailySteps;
-      _totalSteps = totalStepsSinceBoot;
-      _lastStepTime = eventTime;
-      
-      _saveData();
-      notifyListeners();
-      
-      print('👣 Adım güncellendi: Günlük=$_dailySteps, Toplam=$_totalSteps');
-    }
-  }
-
-  /// TYPE_STEP_DETECTOR sensöründen gelen veriyi işle
-  void _handleStepDetectorEvent(Map<String, dynamic> event) {
-    final timestamp = event['timestamp'] as int? ?? 0;
-    final stepTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    
-    print('👟 Adım tespit edildi: ${stepTime.toString()}');
-    
-    // Yürüme durumunu güncelle
-    _isWalking = true;
-    notifyListeners();
-    
-    // 5 saniye sonra yürüme durumunu false yap
-    Timer(const Duration(seconds: 5), () {
-      _isWalking = false;
-      notifyListeners();
+  /// Periyodik güncelleme timer'ını başlat
+  void _startUpdateTimer() {
+    _updateTimer?.cancel(); // Mevcut timer'ı iptal et
+    _updateTimer = Timer.periodic(const Duration(seconds: 5), (timer) async { // Her 5 saniyede bir güncelle
+      await _loadSavedData(); // En güncel veriyi SharedPreferences'tan oku
     });
   }
 
-  /// Yürüme durumu değişikliğini işle
-  void _handleWalkingStatusEvent(Map<String, dynamic> event) {
-    final isWalking = event['isWalking'] as bool? ?? false;
-    
-    if (_isWalking != isWalking) {
-      _isWalking = isWalking;
-      notifyListeners();
-      print('🚶 Yürüme durumu: ${isWalking ? "Yürüyor" : "Durdu"}');
-    }
-  }
-
-  /// Hata event'ini işle
-  void _handleErrorEvent(Map<String, dynamic> event) {
-    final errorMessage = event['message'] as String? ?? 'Bilinmeyen hata';
-    print('❌ Native sensör hatası: $errorMessage');
-  }
-
-  /// Yeni gün kontrolü
-  bool _isNewDay(DateTime eventTime) {
-    return eventTime.day != _todayDate.day ||
-           eventTime.month != _todayDate.month ||
-           eventTime.year != _todayDate.year;
-  }
-
-  /// Yeni gün için reset işlemi
-  void _resetForNewDay() {
-    _dailySteps = 0;
-    _baseStepCount = _totalSteps;
-    _todayDate = DateTime.now();
-    
-    _saveData();
-    notifyListeners();
-    
-    print('🌅 Yeni gün başladı, günlük adımlar sıfırlandı');
-  }
-
-  /// Manuel günlük adım sıfırlama
+  /// Manuel günlük adım sıfırlama (Kotlin tarafını tetikler)
   Future<void> resetDailySteps() async {
     try {
       await _methodChannel.invokeMethod('resetDailySteps');
-      
-      _dailySteps = 0;
-      _baseStepCount = _totalSteps;
-      _todayDate = DateTime.now();
-      
-      _saveData();
+      // Native taraf sıfırladıktan sonra veriyi tekrar yükle
+      await _loadSavedData();
       notifyListeners();
-      
       print('🔄 Günlük adımlar manuel olarak sıfırlandı');
     } catch (e) {
       print('❌ Manuel reset hatası: $e');
     }
   }
 
-  /// Servisi durdur
+  /// Servisi durdur (Kotlin tarafını tetikler)
   Future<void> stop() async {
     try {
       await _methodChannel.invokeMethod('stopStepCounter');
       await _methodChannel.invokeMethod('stopBackgroundService');
       
-      _nativeStepStream?.cancel();
+      _updateTimer?.cancel(); // Timer'ı durdur
       _isActive = false;
       notifyListeners();
       
@@ -264,69 +127,55 @@ class NativeStepCounterService extends ChangeNotifier {
     }
   }
 
-  /// Anlık adım verilerini al
+  /// Anlık adım verilerini al (Kotlin tarafından değil, Flutter'ın kendi state'inden)
   Future<Map<String, int>> getCurrentStepData() async {
-    try {
-      final result = await _methodChannel.invokeMethod('getCurrentStepData');
-      return {
-        'dailySteps': result['dailySteps'] ?? _dailySteps,
-        'totalSteps': result['totalSteps'] ?? _totalSteps,
-      };
-    } catch (e) {
-      print('❌ Anlık veri alma hatası: $e');
-      return {
-        'dailySteps': _dailySteps,
-        'totalSteps': _totalSteps,
-      };
-    }
+    return {
+      'dailySteps': _dailySteps,
+      'totalSteps': _totalSteps,
+    };
   }
 
-  /// Veri kaydetme
-  Future<void> _saveData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayKey = '${today.year}-${today.month}-${today.day}';
-      
-      await prefs.setInt('native_daily_steps_$todayKey', _dailySteps);
-      await prefs.setInt('native_total_steps', _totalSteps);
-      await prefs.setInt('native_base_step_count', _baseStepCount);
-      await prefs.setString('native_today_date', _todayDate.toIso8601String());
-      
-    } catch (e) {
-      print('❌ Veri kaydetme hatası: $e');
-    }
-  }
-
-  /// Kaydedilmiş veriyi yükleme
+  /// Kaydedilmiş veriyi yükleme (Kotlin tarafından kaydedilen veriyi okur)
   Future<void> _loadSavedData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayKey = '${today.year}-${today.month}-${today.day}';
-      
-      _dailySteps = prefs.getInt('native_daily_steps_$todayKey') ?? 0;
-      _totalSteps = prefs.getInt('native_total_steps') ?? 0;
-      _baseStepCount = prefs.getInt('native_base_step_count') ?? 0;
-      
-      final todayDateString = prefs.getString('native_today_date');
-      if (todayDateString != null) {
-        _todayDate = DateTime.parse(todayDateString);
+      final prefs = await SharedPreferences.getInstance(); // Varsayılan SharedPreferences'ı kullan
+
+      final String? lastDateFromKotlin = prefs.getString(_keyLastDate);
+      final String todayKey = '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
+
+      if (lastDateFromKotlin != todayKey) {
+        _dailySteps = 0;
+        _baseStepCount = prefs.getInt(_keyTotalSteps) ?? 0;
+        _todayDate = DateTime.now();
+      } else {
+        _dailySteps = prefs.getInt(_keyDailySteps) ?? 0;
+        _baseStepCount = prefs.getInt(_keyInitialCount) ?? 0;
+        _todayDate = DateTime.parse(lastDateFromKotlin ?? DateTime.now().toIso8601String());
       }
       
-      print('📂 Native veri yüklendi: Günlük=$_dailySteps, Toplam=$_totalSteps');
+      _totalSteps = prefs.getInt(_keyTotalSteps) ?? 0;
+      
+      notifyListeners();
+      
+      print('📂 Native veri yüklendi (Flutter): Günlük=$_dailySteps, Toplam=$_totalSteps');
       
     } catch (e) {
-      print('❌ Veri yükleme hatası: $e');
+      print('❌ Veri yükleme hatası (Flutter): $e');
     }
   }
 
-  /// Belirli tarih için adım sayısını al
+  /// Belirli tarih için adım sayısını al (Kotlin tarafından kaydedilen veriyi okur)
   Future<int> getStepsForDate(DateTime date) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final dateKey = '${date.year}-${date.month}-${date.day}';
-      return prefs.getInt('native_daily_steps_$dateKey') ?? 0;
+      final String? lastDateFromKotlin = prefs.getString(_keyLastDate);
+      final String todayKey = '${date.year}-${date.month}-${date.day}';
+
+      if (lastDateFromKotlin == todayKey) {
+        return prefs.getInt(_keyDailySteps) ?? 0;
+      } else {
+        return 0;
+      }
     } catch (e) {
       print('❌ Tarih için adım alma hatası: $e');
       return 0;
@@ -347,47 +196,10 @@ class NativeStepCounterService extends ChangeNotifier {
     return weeklyData;
   }
 
-  /// Hesaplanmış veriler
-
-  // Kalori hesaplama (daha hassas)
-  double getCaloriesFromSteps() {
-    return _dailySteps * 0.045; // Geliştirilmiş kalori hesabı
-  }
-
-  // Mesafe hesaplama (metre cinsinden)
-  double getDistanceFromSteps() {
-    return _dailySteps * 0.762; // metre cinsinden
-  }
-
-  // Kilometre cinsinden mesafe
-  double getDistanceInKm() {
-    return getDistanceFromSteps() / 1000;
-  }
-
-  // Aktif dakika hesaplama
-  int getActiveMinutes() {
-    return (_dailySteps / 120).round().clamp(0, 1440); // 120 adım = 1 dakika
-  }
-
-  // Ortalama hız (yürüyor ise)
-  double getAverageSpeed() {
-    if (_isWalking) {
-      return 4.8; // km/h - normal yürüme hızı
-    }
-    return 0.0;
-  }
-
-  @override
-  void dispose() {
-    _nativeStepStream?.cancel();
-    super.dispose();
-  }
-
   /// Test fonksiyonu (geliştirme amaçlı)
   void addTestStep() {
     _dailySteps++;
     _totalSteps++;
-    _saveData();
     notifyListeners();
     print('🧪 Test adımı eklendi: $_dailySteps');
   }
@@ -397,12 +209,17 @@ class NativeStepCounterService extends ChangeNotifier {
     return {
       'isActive': _isActive,
       'isNativeSensorAvailable': _isNativeSensorAvailable,
-      'isWalking': _isWalking,
       'dailySteps': _dailySteps,
       'totalSteps': _totalSteps,
       'baseStepCount': _baseStepCount,
-      'lastStepTime': _lastStepTime.toString(),
       'todayDate': _todayDate.toString(),
     };
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel(); // Timer'ı temizle
+    print('🛑 NativeStepCounterService dispose çağrıldı');
+    super.dispose();
   }
 }

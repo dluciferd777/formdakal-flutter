@@ -34,6 +34,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
+            // MediaQuery.of(context).padding.bottom, alt navigasyon çubuğunun yüksekliğini verir.
+            // MediaQuery.of(context).viewInsets.bottom, klavye açıkkenki yüksekliği verir.
+            final double bottomPadding = MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom;
+
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
               decoration: BoxDecoration(
@@ -244,7 +248,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   
                   // Save button - Fixed at bottom
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding), // Alt padding eklendi
                     decoration: BoxDecoration(
                       color: Theme.of(context).scaffoldBackgroundColor,
                       border: Border(
@@ -460,10 +464,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
+        backgroundColor: isDarkMode ? AppColors.darkSurface : AppColors.primaryGreen, // Temaya göre renk
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -512,8 +517,22 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'İlk hatırlatıcını eklemek için + butonuna dokun',
+                      textAlign: TextAlign.center, // Metni ortala
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 16), // Yeni bilgi metni için boşluk
+                    // YENİ BİLGİ METNİ
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Text(
+                        'Spor, su, vitamin, ilaç veya genel görevler için zamanlanmış bildirimler ekleyerek düzenli kal. Bildirimleri yönetmek için dokun.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.info, // Bilgi rengi kullanıldı
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],

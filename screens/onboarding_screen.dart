@@ -119,6 +119,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
                 ),
+                const SizedBox(height: 16), // Yeni uyarı için boşluk
+                // YENİ UYARI METNİ
+                Text(
+                  'Doğru ve kişiselleştirilmiş kalori hesaplamaları, MET değerleri ve fitness takibi için lütfen bilgilerinizi eksiksiz ve doğru girdiğinizden emin olun. Sağlıklı hedeflerinize ulaşmanızda bu veriler kritik öneme sahiptir. 🎯',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.info, fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(height: 32),
                 _buildTextField(controller: _nameController, label: 'Ad Soyad', icon: Icons.person, validator: (v) => v!.isEmpty ? 'Bu alan gerekli' : null),
                 const SizedBox(height: 16),

@@ -22,9 +22,9 @@ import java.util.*
 class StepCounterService : Service() {
     
     companion object {
-        private const val CHANNEL_ID = "formdakal_step_counter"
+        private const val CHANNEL_ID = "formdakal_step_counter_foreground"
         private const val NOTIFICATION_ID = 1001
-        private const val PREFS_NAME = "step_counter_prefs"
+        // private const val PREFS_NAME = "step_counter_prefs" // KALDIRILDI
         private const val KEY_DAILY_STEPS = "daily_steps"
         private const val KEY_TOTAL_STEPS = "total_steps"
         private const val KEY_INITIAL_COUNT = "initial_count"
@@ -191,10 +191,10 @@ class StepCounterService : Service() {
         
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Adım Sayacı",
+            "Adım Sayacı Arka Plan Servisi",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Arka planda adım sayma servisi"
+            description = "Arka planda adım sayma servisi bildirimi"
             setShowBadge(false)
             enableVibration(false)
             setSound(null, null)
@@ -215,7 +215,7 @@ class StepCounterService : Service() {
         )
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("FormDakal Adım Sayacı")
+            .setContentTitle("FormdaKal Adım Sayacı")
             .setContentText("Bugün: $dailySteps adım")
             .setSmallIcon(android.R.drawable.ic_menu_directions) // Varsayılan icon
             .setContentIntent(pendingIntent)
@@ -233,7 +233,8 @@ class StepCounterService : Service() {
     
     private fun saveToPreferences() {
         try {
-            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            // getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) yerine varsayılanı kullan
+            val prefs = getSharedPreferences(packageName + "_preferences", Context.MODE_PRIVATE) // Varsayılan SharedPreferences dosyasının adı
             val editor = prefs.edit()
             
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -252,7 +253,8 @@ class StepCounterService : Service() {
     
     private fun loadFromPreferences() {
         try {
-            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            // getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) yerine varsayılanı kullan
+            val prefs = getSharedPreferences(packageName + "_preferences", Context.MODE_PRIVATE) // Varsayılan SharedPreferences dosyasının adı
             
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             val lastDate = prefs.getString(KEY_LAST_DATE, "")

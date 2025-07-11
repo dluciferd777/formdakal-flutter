@@ -1,10 +1,11 @@
-// lib/widgets/activity_calendar.dart
+// lib/widgets/activity_calendar.dart - DÜZELTİLMİŞ VERSİYON
 import 'package:flutter/material.dart';
 import 'package:formdakal/providers/exercise_provider.dart';
 import 'package:formdakal/providers/food_provider.dart';
 import 'package:formdakal/providers/user_provider.dart';
 import 'package:formdakal/utils/colors.dart';
 import 'package:formdakal/widgets/activity_ring_painter.dart';
+import 'package:formdakal/services/native_step_counter_service.dart'; // NativeStepCounterService import edildi
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -41,14 +42,13 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
   }
 
   DateTime _getWeekStart(DateTime date) {
-    // Haftanın başlangıcını Pazartesi olarak ayarla (weekday: 1)
     return date.subtract(Duration(days: date.weekday - 1));
   }
 
   void _changeWeek(int weeks) {
     setState(() {
       _currentWeekStart = _currentWeekStart.add(Duration(days: weeks * 7));
-      _selectedDate = _currentWeekStart; // Haftayı değiştirince seçili tarihi de ilk güne ayarla
+      _selectedDate = _currentWeekStart;
       widget.onDateSelected(_selectedDate);
     });
   }
@@ -61,8 +61,7 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
       child: Column(
         children: [
           _buildHeader(theme),
-          const SizedBox(height: 8), // Boşluk azaltıldı
-          // Takvimi yatay kaydırılabilir hale getirmek için SingleChildScrollView eklendi
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: _buildWeekDays(theme),
@@ -83,22 +82,27 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 16.0), // Sol padding eklendi
+          padding: const EdgeInsets.only(left: 16.0),
           child: Text(
-            // Tarih formatı "2025 Temmuz Pazartesi" şeklinde ayarlandı ve boyutu küçültüldü
             DateFormat('yyyy MMMM EEEE', 'tr_TR').format(_currentWeekStart),
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 16), // Boyut küçültüldü
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
         Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () => _changeWeek(-1),
+            GestureDetector(
+              onTap: () => _changeWeek(-1),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(Icons.chevron_left),
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: () => _changeWeek(1),
+            GestureDetector(
+              onTap: () => _changeWeek(1),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: const Icon(Icons.chevron_right),
+              ),
             ),
           ],
         ),
@@ -112,7 +116,7 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
       children: List.generate(7, (index) {
         final date = _currentWeekStart.add(Duration(days: index));
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0), // Günler arası boşluk eklendi
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: _buildDayItem(date, theme),
         );
       }),
@@ -131,16 +135,16 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
       child: Column(
         children: [
           Text(
-            DateFormat('E', 'tr_TR').format(date).substring(0, 1), // Haftanın günü kısaltması
+            DateFormat('E', 'tr_TR').format(date).substring(0, 1),
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: isToday ? AppColors.primaryGreen : null),
           ),
-          const SizedBox(height: 6), // Boşluk azaltıldı
+          const SizedBox(height: 6),
           _buildActivityRingForDay(date, isSelected),
-          const SizedBox(height: 6), // Boşluk azaltıldı
+          const SizedBox(height: 6),
           Container(
-            height: 22, // Boyut küçültüldü
-            width: 22, // Boyut küçültüldü
+            height: 22,
+            width: 22,
             decoration: isSelected
                 ? const BoxDecoration(
                     color: AppColors.primaryGreen, shape: BoxShape.circle)
@@ -148,7 +152,7 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
             child: Center(
               child: Text(
                 date.day.toString(),
-                style: theme.textTheme.bodySmall?.copyWith( // Yazı boyutu küçültüldü
+                style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   color: isSelected ? Colors.white : null,
                 ),
@@ -161,57 +165,61 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
   }
 
   Widget _buildActivityRingForDay(DateTime date, bool isSelected) {
-    return Consumer3<UserProvider, FoodProvider, ExerciseProvider>(
-      builder: (context, userProvider, foodProvider, exerciseProvider, child) {
+    return Consumer4<UserProvider, FoodProvider, ExerciseProvider, NativeStepCounterService>( // NativeStepCounterService eklendi
+      builder: (context, userProvider, foodProvider, exerciseProvider, stepService, child) { // stepService parametresi eklendi
         double progress1 = 0, progress2 = 0, progress3 = 0;
         Color color1 = Colors.grey, color2 = Colors.grey, color3 = Colors.grey;
 
         final user = userProvider.user;
 
         if (widget.mode == CalendarMode.activity) {
-          // Adım, Yemek Kalori (Alınan), Yakılan Kalori (Fitness Kalori)
-          final steps = exerciseProvider.dailySteps;
-          final intakeCalories = foodProvider.getDailyCalories(date);
-          final burnedCalories = exerciseProvider.getDailyBurnedCalories(date);
-
-          // Hedefler kullanıcıdan veya varsayılan değerlerden alınır
-          final stepGoal = user?.dailyStepGoal ?? 6000;
+          // ADIM, YEMEKTEKİ KALORİ (ALINAN), FİTNESS KALORİ (YAKILAN)
+          
+          // Adım verileri - şimdilik sadece bugün için adım sayar çalışıyor
+          final bool isToday = DateUtils.isSameDay(date, DateTime.now());
+          final steps = isToday ? stepService.dailySteps : 0; // stepService.dailySteps kullanıldı
+          final stepGoal = user?.dailyStepGoal ?? 8000;
+          
+          // Yemekteki kalori (alınan kalori)
+          final consumedCalories = foodProvider.getDailyCalories(date);
           final calorieIntakeGoal = user?.dailyCalorieNeeds ?? 2000;
+          
+          // Fitness kalori (yakılan kalori)
+          final burnedCalories = exerciseProvider.getDailyBurnedCalories(date);
           final calorieBurnGoal = (user?.dailyCalorieNeeds ?? 2000) * 0.25; 
 
           progress1 = (steps / stepGoal).clamp(0.0, 1.0);
-          progress2 = (intakeCalories / calorieIntakeGoal).clamp(0.0, 1.0);
+          progress2 = (consumedCalories / calorieIntakeGoal).clamp(0.0, 1.0);
           progress3 = (burnedCalories / calorieBurnGoal).clamp(0.0, 1.0);
 
-          color1 = AppColors.stepColor;       // Adım için yeşil
-          color2 = AppColors.calorieColor;    // Alınan kalori için pembe
-          color3 = AppColors.primaryGreen;    // Yakılan kalori için ana yeşil
-        } else if (widget.mode == CalendarMode.macros && user != null) {
-          // Protein, Karbonhidrat, Yağ
+          color1 = AppColors.stepColor;       // Yeşil - Adım
+          color2 = AppColors.calorieColor;    // Pembe/Kırmızı - Yemek Kalori (Alınan)
+          color3 = Colors.orange;             // Turuncu - Fitness Kalori (Yakılan)
+          
+        } else if (widget.mode == CalendarMode.macros) {
+          // PROTEİN, KARBONHİDRAT, YAĞ
           final protein = foodProvider.getDailyProtein(date);
           final carbs = foodProvider.getDailyCarbs(date);
           final fat = foodProvider.getDailyFat(date);
 
-          // Hedefler kullanıcıdan alınır, eğer sıfırsa makul varsayılan değerler kullanılır
-          final proteinGoal = user.dailyProteinGoal > 0 ? user.dailyProteinGoal : 100.0; // Varsayılan 100g
-          final carbGoal = user.dailyCarbGoal > 0 ? user.dailyCarbGoal : 200.0; // Varsayılan 200g
-          final fatGoal = user.dailyFatGoal > 0 ? user.dailyFatGoal : 50.0; // Varsayılan 50g
+          final proteinGoal = user?.dailyProteinGoal ?? 100.0;
+          final carbGoal = user?.dailyCarbGoal ?? 200.0;
+          final fatGoal = user?.dailyFatGoal ?? 50.0;
 
           progress1 = (protein / proteinGoal).clamp(0.0, 1.0);
           progress2 = (carbs / carbGoal).clamp(0.0, 1.0);
           progress3 = (fat / fatGoal).clamp(0.0, 1.0);
 
-          color1 = AppColors.primaryGreen; // Protein için ana yeşil
-          color2 = Colors.orange;          // Karbonhidrat için turuncu
-          color3 = AppColors.error;        // Yağ için kırmızı
+          color1 = AppColors.primaryGreen;    // Yeşil - Protein
+          color2 = Colors.orange;             // Turuncu - Karbonhidrat
+          color3 = AppColors.error;           // Kırmızı - Yağ
         }
 
-        // Halka boyutu korundu
         return SizedBox(
-          width: 45, // Boyut korundu
-          height: 45, // Boyut korundu
+          width: 45,
+          height: 45,
           child: CustomPaint(
-            size: const Size(45, 45), // Boyut korundu
+            size: const Size(45, 45),
             painter: ActivityRingPainter(
               outerProgress: progress1,
               middleProgress: progress2,
@@ -219,7 +227,8 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
               outerColor: color1,
               middleColor: color2,
               innerColor: color3,
-              showGlow: true, // Parlama efekti eklendi
+              showGlow: true,
+              customStrokeWidth: 3, // Biraz kalınlaştırıldı boşluk için
             ),
           ),
         );
@@ -228,18 +237,20 @@ class _ActivityCalendarState extends State<ActivityCalendar> {
   }
 
   Widget _buildStatsRow() {
-    return Consumer2<FoodProvider, ExerciseProvider>(
-      builder: (context, foodProvider, exerciseProvider, child) {
+    return Consumer3<FoodProvider, ExerciseProvider, NativeStepCounterService>( // NativeStepCounterService eklendi
+      builder: (context, foodProvider, exerciseProvider, stepService, child) { // stepService parametresi eklendi
+        final bool isToday = DateUtils.isSameDay(_selectedDate, DateTime.now());
+        
         final consumed = foodProvider.getDailyCalories(_selectedDate);
         final burned = exerciseProvider.getDailyBurnedCalories(_selectedDate);
-        final minutes = exerciseProvider.getDailyExerciseMinutes(_selectedDate);
+        final steps = isToday ? stepService.dailySteps : 0; // stepService.dailySteps kullanıldı
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildStatItem(context, 'Alınan', '${consumed.toInt()} kal', AppColors.calorieColor),
-            _buildStatItem(context, 'Yakılan', '${burned.toInt()} kal', AppColors.primaryGreen),
-            _buildStatItem(context, 'Egzersiz', '${minutes} dk', AppColors.timeColor),
+            _buildStatItem(context, 'Yakılan', '${burned.toInt()} kal', Colors.orange),
+            _buildStatItem(context, 'Adım', '$steps', AppColors.stepColor),
           ],
         );
       },
