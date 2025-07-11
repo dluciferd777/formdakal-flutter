@@ -1,4 +1,4 @@
-// lib/screens/profile_screen.dart
+// lib/screens/profile_screen.dart - TUTARLI APPBAR İLE DÜZELTİLDİ
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -9,8 +9,6 @@ import 'package:formdakal/services/calorie_service.dart';
 import 'package:formdakal/utils/colors.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../services/cloud_backup_service.dart';
-import 'package:intl/intl.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -90,61 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _boneController.dispose();
     _animationController.dispose();
     super.dispose();
-  }
-
-  void _loadFromBackup() async {
-    final backupService = CloudBackupService();
-    final backups = await backupService.listAvailableBackups();
-    
-    if (backups.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Yedek dosyası bulunamadı')),
-      );
-      return;
-    }
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Yedek Seç'),
-        content: Container(
-          height: 200,
-          width: 300,
-          child: ListView.builder(
-            itemCount: backups.length,
-            itemBuilder: (context, index) {
-              final backup = backups[index];
-              return ListTile(
-                title: Text(DateFormat('dd/MM/yyyy HH:mm').format(backup.modifiedDate)),
-                subtitle: Text(backup.formattedSize),
-                onTap: () async {
-                  Navigator.pop(context);
-                  
-                  final result = await backupService.restoreFromBackup(backup);
-                  
-                  if (result.success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Yedek yüklendi! Ana ekrana yönlendiriliyorsunuz.')),
-                    );
-                    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Hata: ${result.message}')),
-                    );
-                  }
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('İptal'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _saveProfile() async {
@@ -248,22 +191,44 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
+      // TUTARLI APPBAR - Yeşil arka plan, beyaz metin/ikonlar
       appBar: AppBar(
-        title: const Text('Profilim'),
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Profilim',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.cloud_download),
-            onPressed: _loadFromBackup,
-            tooltip: 'Yedekten Geri Yükle',
-          ),
-          IconButton(
-            icon: Icon(context.watch<ThemeProvider>().isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            icon: Icon(
+              context.watch<ThemeProvider>().isDarkMode 
+                  ? Icons.light_mode 
+                  : Icons.dark_mode,
+              color: Colors.white,
+            ),
             onPressed: () => context.read<ThemeProvider>().toggleTheme(),
           ),
           TextButton(
             onPressed: _saveProfile,
-            child: const Text('Kaydet', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Kaydet', 
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -271,15 +236,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         child: Consumer<UserProvider>(
           builder: (context, userProvider, child) {
             if (userProvider.user == null) {
-              return const Center(child: Text('Kullanıcı bilgileri yüklenemedi.'));
+              return const Center(
+                child: Text('Kullanıcı bilgileri yüklenemedi.'),
+              );
             }
             final user = userProvider.user!;
+            
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
+                    // Profil resmi bölümü
                     GestureDetector(
                       onTap: _showImageOptionsDialog,
                       child: Column(
@@ -306,13 +275,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             userProvider.user?.profileImagePath == null
                                 ? 'Profil resmi eklemek için tıklayınız'
                                 : 'Profil resmini değiştirmek için tıklayınız',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.primaryGreen),
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.primaryGreen),
                             textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
+                    
                     const SizedBox(height: 24),
+                    
+                    // Temel bilgiler bölümü
                     _buildSectionHeader('Temel Bilgiler'),
                     const SizedBox(height: 16),
                     _buildTextField(controller: _nameController, label: 'Ad Soyad', icon: Icons.person),
@@ -326,7 +298,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             value: _selectedGender,
                             label: 'Cinsiyet',
                             icon: Icons.wc,
-                            items: const [DropdownMenuItem(value: 'male', child: Text('Erkek')), DropdownMenuItem(value: 'female', child: Text('Kadın'))],
+                            items: const [
+                              DropdownMenuItem(value: 'male', child: Text('Erkek')), 
+                              DropdownMenuItem(value: 'female', child: Text('Kadın'))
+                            ],
                             onChanged: (value) => setState(() => _selectedGender = value),
                           ),
                         ),
@@ -340,21 +315,26 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         Expanded(child: _buildTextField(controller: _weightController, label: 'Kilo (kg)', icon: Icons.monitor_weight, keyboardType: const TextInputType.numberWithOptions(decimal: true))),
                       ],
                     ),
+                    
                     const SizedBox(height: 24),
+                    
+                    // Hedefler bölümü
                     _buildSectionHeader('Hedefler'),
                     const SizedBox(height: 16),
                     _buildDropdownField<String>(
                       value: _selectedActivityLevel,
                       label: 'Aktivite Seviyesi',
                       icon: Icons.directions_run,
-                      items: CalorieService.activityFactors.keys.map((key) => DropdownMenuItem<String>(value: key, child: Text(_getActivityLevelDisplayName(key)))).toList(),
+                      items: CalorieService.activityFactors.keys.map((key) => 
+                        DropdownMenuItem<String>(value: key, child: Text(_getActivityLevelDisplayName(key)))
+                      ).toList(),
                       onChanged: (value) => setState(() => _selectedActivityLevel = value),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
                       child: Text(
                         _getActivityLevelDescription(_selectedActivityLevel ?? 'sedentary'),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -378,7 +358,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ],
                       onChanged: (value) => setState(() => _selectedGoal = value),
                     ),
+                    
                     const SizedBox(height: 24),
+                    
+                    // Vücut analizi bölümü
                     _buildSectionHeader('Vücut Analizi (Opsiyonel)'),
                     const SizedBox(height: 16),
                     Row(
@@ -404,7 +387,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         Expanded(child: _buildTextField(controller: _boneController, label: 'Kemik Oranı (%)', icon: Icons.healing, keyboardType: const TextInputType.numberWithOptions(decimal: true), isOptional: true)),
                       ],
                     ),
+                    
                     const SizedBox(height: 24),
+                    
+                    // BMI kartı
                     _buildBMICard(context, user),
                     const SizedBox(height: 24),
                   ],
@@ -481,7 +467,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               child: Text(
                 user.gender == 'male' ? 'Erkek' : 'Kadın',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isDarkMode ? Colors.white70 : Colors.black54,
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                 ),
               ),
             ),
@@ -511,7 +497,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, required IconData icon, TextInputType? keyboardType, bool isOptional = false}) {
+  Widget _buildTextField({
+    required TextEditingController controller, 
+    required String label, 
+    required IconData icon, 
+    TextInputType? keyboardType, 
+    bool isOptional = false
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -529,10 +521,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildDropdownField<T>({required T? value, required String label, required IconData icon, required List<DropdownMenuItem<T>> items, required void Function(T?)? onChanged}) {
+  Widget _buildDropdownField<T>({
+    required T? value, 
+    required String label, 
+    required IconData icon, 
+    required List<DropdownMenuItem<T>> items, 
+    required void Function(T?)? onChanged
+  }) {
     return DropdownButtonFormField<T>(
       value: value,
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+      decoration: InputDecoration(
+        labelText: label, 
+        prefixIcon: Icon(icon), 
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))
+      ),
       items: items,
       onChanged: onChanged,
       validator: (value) => value == null ? 'Lütfen bir seçim yapın' : null,

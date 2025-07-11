@@ -1,11 +1,12 @@
-// lib/screens/reminder_screen.dart
+// lib/screens/reminder_screen.dart - ÇALIŞAN VERSİYON
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/reminder_provider.dart';
+import '../providers/theme_provider.dart';
 import '../models/reminder_model.dart';
-import '../utils/colors.dart';
 import '../services/notification_service.dart';
+import '../utils/colors.dart';
 
 class ReminderScreen extends StatefulWidget {
   const ReminderScreen({super.key});
@@ -15,199 +16,296 @@ class ReminderScreen extends StatefulWidget {
 }
 
 class _ReminderScreenState extends State<ReminderScreen> {
-  final NotificationService _notificationService = NotificationService();
-  bool _showTestPanel = false;
-
   void _showAddOrEditReminderDialog({Reminder? existingReminder}) {
     final isEditing = existingReminder != null;
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController(text: existingReminder?.title ?? '');
+    final descriptionController = TextEditingController(text: existingReminder?.description ?? '');
     
     ReminderType selectedType = existingReminder?.type ?? ReminderType.general;
     DateTime selectedDate = existingReminder?.reminderDateTime ?? DateTime.now();
     TimeOfDay selectedTime = TimeOfDay.fromDateTime(existingReminder?.reminderDateTime ?? DateTime.now());
+    RepeatInterval selectedRepeat = existingReminder?.repeatInterval ?? RepeatInterval.none;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                top: 20, left: 20, right: 20,
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Başlık
-                      Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        isEditing ? 'Hatırlatıcıyı Düzenle' : 'Yeni Hatırlatıcı',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Başlık alanı
-                      TextFormField(
-                        controller: titleController,
-                        decoration: InputDecoration(
-                          labelText: 'Hatırlatıcı Başlığı',
-                          hintText: 'Örn: Vitamin D al, Spor yap',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: Icon(
-                            _getIconForType(selectedType),
-                            color: AppColors.primaryGreen,
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 50,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isEditing ? 'Hatırlatıcıyı Düzenle' : 'Yeni Hatırlatıcı',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        validator: (value) => (value == null || value.isEmpty) 
-                            ? 'Lütfen bir başlık girin.' 
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Tür seçimi
-                      DropdownButtonFormField<ReminderType>(
-                        value: selectedType,
-                        decoration: InputDecoration(
-                          labelText: 'Hatırlatıcı Türü',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: Icon(
-                            Icons.category_rounded,
-                            color: AppColors.primaryGreen,
-                          ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
                         ),
-                        items: ReminderType.values.map((type) {
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Row(
-                              children: [
-                                Icon(_getIconForType(type), size: 20),
-                                const SizedBox(width: 8),
-                                Text(_getReminderTypeName(type)),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (type) => setDialogState(() => selectedType = type!),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Tarih ve saat seçimi
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: selectedDate,
-                                  firstDate: DateTime.now(),
-                                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                                );
-                                if (picked != null) {
-                                  setDialogState(() => selectedDate = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.calendar_today_rounded),
-                              label: Text(
-                                DateFormat('dd.MM.yyyy').format(selectedDate),
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.all(16),
-                                shape: RoundedRectangleBorder(
+                      ],
+                    ),
+                  ),
+                  
+                  // Form content - Scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Başlık
+                            TextFormField(
+                              controller: titleController,
+                              decoration: InputDecoration(
+                                labelText: 'Başlık *',
+                                hintText: 'Hatırlatıcı başlığı girin',
+                                prefixIcon: const Icon(Icons.title),
+                                border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                              ),
+                              validator: (value) => (value == null || value.isEmpty) 
+                                  ? 'Lütfen bir başlık girin.' : null,
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Açıklama
+                            TextFormField(
+                              controller: descriptionController,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                labelText: 'Açıklama (Opsiyonel)',
+                                hintText: 'Hatırlatıcı detayları...',
+                                prefixIcon: const Icon(Icons.description),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Hatırlatıcı türü
+                            DropdownButtonFormField<ReminderType>(
+                              value: selectedType,
+                              decoration: InputDecoration(
+                                labelText: 'Hatırlatıcı Türü',
+                                prefixIcon: Icon(_getTypeIcon(selectedType)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: ReminderType.values.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Row(
+                                    children: [
+                                      Icon(_getTypeIcon(type), size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(_getReminderTypeName(type)),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (type) => setDialogState(() => selectedType = type!),
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Tekrar durumu
+                            DropdownButtonFormField<RepeatInterval>(
+                              value: selectedRepeat,
+                              decoration: InputDecoration(
+                                labelText: 'Tekrar',
+                                prefixIcon: const Icon(Icons.repeat),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: RepeatInterval.values.map((repeat) {
+                                return DropdownMenuItem(
+                                  value: repeat,
+                                  child: Text(_getRepeatName(repeat)),
+                                );
+                              }).toList(),
+                              onChanged: (repeat) => setDialogState(() => selectedRepeat = repeat!),
+                            ),
+                            
+                            const SizedBox(height: 20),
+                            
+                            // Tarih ve saat seçimi
+                            Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.schedule, color: AppColors.primaryGreen),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Hatırlatma Zamanı',
+                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () async {
+                                              final picked = await showDatePicker(
+                                                context: context, 
+                                                initialDate: selectedDate, 
+                                                firstDate: DateTime.now().subtract(const Duration(days: 1)), 
+                                                lastDate: DateTime(2101),
+                                                locale: const Locale('tr', 'TR'),
+                                              );
+                                              if (picked != null) {
+                                                setDialogState(() => selectedDate = picked);
+                                              }
+                                            },
+                                            icon: const Icon(Icons.calendar_today),
+                                            label: Text(DateFormat('dd MMMM yyyy', 'tr_TR').format(selectedDate)),
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () async {
+                                              final picked = await showTimePicker(
+                                                context: context, 
+                                                initialTime: selectedTime,
+                                              );
+                                              if (picked != null) {
+                                                setDialogState(() => selectedTime = picked);
+                                              }
+                                            },
+                                            icon: const Icon(Icons.access_time),
+                                            label: Text(selectedTime.format(context)),
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Save button - Fixed at bottom
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (isEditing) ...[
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                _deleteReminder(existingReminder);
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(Icons.delete, color: AppColors.error),
+                              label: const Text('Sil', style: TextStyle(color: AppColors.error)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: const BorderSide(color: AppColors.error),
                               ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setDialogState(() => selectedTime = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.access_time_rounded),
-                              label: Text(
-                                selectedTime.format(context),
-                                style: const TextStyle(fontWeight: FontWeight.w500),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.all(16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Kaydet butonu
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            if (formKey.currentState!.validate()) {
-                              _saveReminder(
-                                existingReminder: existingReminder,
-                                title: titleController.text,
-                                type: selectedType,
-                                date: selectedDate,
-                                time: selectedTime,
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.all(16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            isEditing ? 'Güncelle' : 'Kaydet',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (formKey.currentState!.validate()) {
+                                _saveReminder(
+                                  existingReminder: existingReminder,
+                                  title: titleController.text.trim(),
+                                  description: descriptionController.text.trim().isEmpty 
+                                      ? null : descriptionController.text.trim(),
+                                  type: selectedType,
+                                  date: selectedDate,
+                                  time: selectedTime,
+                                  repeat: selectedRepeat,
+                                );
+                              }
+                            },
+                            icon: Icon(isEditing ? Icons.update : Icons.save),
+                            label: Text(isEditing ? 'Güncelle' : 'Kaydet'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             );
           },
@@ -219,142 +317,217 @@ class _ReminderScreenState extends State<ReminderScreen> {
   void _saveReminder({
     required Reminder? existingReminder,
     required String title,
+    required String? description,
     required ReminderType type,
     required DateTime date,
     required TimeOfDay time,
-  }) {
-    final reminderDateTime = DateTime(
-      date.year, 
-      date.month, 
-      date.day, 
-      time.hour, 
-      time.minute
-    );
+    required RepeatInterval repeat,
+  }) async {
+    final reminderDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
 
-    if (!isEditing(existingReminder) && reminderDateTime.isBefore(DateTime.now())) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Geçmiş bir zamana hatırlatma ekleyemezsiniz.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+    // Geçmiş zaman kontrolü (sadece yeni hatırlatıcılar için)
+    if (existingReminder == null && reminderDateTime.isBefore(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Geçmiş bir zamana hatırlatma ekleyemezsiniz.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
       return;
     }
 
     final reminderProvider = Provider.of<ReminderProvider>(context, listen: false);
     
-    if (isEditing(existingReminder)) {
-      final updatedReminder = existingReminder!;
-      updatedReminder.title = title;
-      updatedReminder.type = type;
-      updatedReminder.reminderDateTime = reminderDateTime;
-      reminderProvider.updateReminder(updatedReminder);
-    } else {
-      final newReminder = Reminder(
-        title: title,
-        type: type,
-        reminderDateTime: reminderDateTime,
-      );
-      reminderProvider.addReminder(newReminder);
+    try {
+      if (existingReminder != null) {
+        // Güncelleme
+        final updatedReminder = Reminder(
+          id: existingReminder.id,
+          title: title,
+          description: description,
+          type: type,
+          reminderDateTime: reminderDateTime,
+          isActive: existingReminder.isActive,
+          repeatInterval: repeat,
+        );
+        
+        await reminderProvider.updateReminder(updatedReminder);
+        
+        // Mevcut bildirimi iptal et ve yenisini planla
+        await NotificationService().cancelNotification(existingReminder.id.hashCode);
+        await _scheduleNotification(updatedReminder);
+        
+      } else {
+        // Yeni ekleme
+        final newReminder = Reminder(
+          title: title,
+          description: description,
+          type: type,
+          reminderDateTime: reminderDateTime,
+          repeatInterval: repeat,
+        );
+        
+        await reminderProvider.addReminder(newReminder);
+        
+        // Bildirim planla
+        await _scheduleNotification(newReminder);
+      }
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(existingReminder != null ? 'Hatırlatıcı güncellendi!' : 'Hatırlatıcı eklendi!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata oluştu: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
-    
-    Navigator.pop(context);
-    
-    // Başarı mesajı
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isEditing(existingReminder) 
-              ? 'Hatırlatıcı güncellendi! 🔔'
-              : 'Hatırlatıcı eklendi! 🔔',
-        ),
-        backgroundColor: AppColors.primaryGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
-  bool isEditing(Reminder? reminder) => reminder != null;
+  void _deleteReminder(Reminder reminder) async {
+    try {
+      final reminderProvider = Provider.of<ReminderProvider>(context, listen: false);
+      await reminderProvider.deleteReminder(reminder.id);
+      
+      // Bildirimi iptal et
+      await NotificationService().cancelNotification(reminder.id.hashCode);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hatırlatıcı silindi!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Silme hatası: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 
-  IconData _getIconForType(ReminderType type) {
+  Future<void> _scheduleNotification(Reminder reminder) async {
+    if (!reminder.isActive || reminder.reminderDateTime.isBefore(DateTime.now())) {
+      return;
+    }
+
+    try {
+      await NotificationService().scheduleNotification(
+        id: reminder.id.hashCode,
+        title: _getNotificationTitle(reminder.type),
+        body: reminder.title,
+        scheduledTime: reminder.reminderDateTime,
+        payload: 'reminder_${reminder.id}',
+      );
+    } catch (e) {
+      print('Bildirim zamanlama hatası: $e');
+    }
+  }
+
+  String _getNotificationTitle(ReminderType type) {
     switch (type) {
       case ReminderType.sport:
-        return Icons.fitness_center_rounded;
+        return '🏃‍♂️ Spor Zamanı!';
       case ReminderType.water:
-        return Icons.water_drop_rounded;
+        return '💧 Su İçme Hatırlatması';
       case ReminderType.medication:
-        return Icons.medical_services_rounded;
-      case ReminderType.vitamin: // EKLENEN CASE
-        return Icons.medical_services_rounded;
+        return '💊 İlaç Zamanı';
+      case ReminderType.vitamin:
+        return '🍊 Vitamin Zamanı';
       case ReminderType.general:
-        return Icons.notifications_rounded;
+        return '📋 Hatırlatma';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
     
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.alarm_rounded,
-                color: AppColors.primaryGreen,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Hatırlatıcılar',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
         elevation: 0,
+        title: const Text(
+          'Hatırlatıcılar',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
-            onPressed: () {
-              setState(() {
-                _showTestPanel = !_showTestPanel;
-              });
-            },
             icon: Icon(
-              _showTestPanel ? Icons.close_rounded : Icons.bug_report_rounded,
-              color: AppColors.primaryGreen,
+              context.watch<ThemeProvider>().isDarkMode 
+                  ? Icons.light_mode 
+                  : Icons.dark_mode,
+              color: Colors.white,
             ),
-            tooltip: _showTestPanel ? 'Test Panelini Kapat' : 'Test Panelini Aç',
+            onPressed: () => context.read<ThemeProvider>().toggleTheme(),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
         child: Consumer<ReminderProvider>(
           builder: (context, provider, child) {
-            return Column(
-              children: [
-                // Test paneli (geliştirme amaçlı)
-                if (_showTestPanel) _buildTestPanel(),
-                
-                // Ana içerik
-                Expanded(
-                  child: provider.reminders.isEmpty 
-                      ? _buildEmptyState(isDark)
-                      : _buildRemindersList(provider, isDark),
+            if (provider.reminders.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.notifications_none,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Henüz hatırlatıcı eklenmedi.',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'İlk hatırlatıcını eklemek için + butonuna dokun',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: provider.reminders.length,
+              itemBuilder: (context, index) {
+                final reminder = provider.reminders[index];
+                return _buildReminderCard(reminder);
+              },
             );
           },
         ),
@@ -363,529 +536,158 @@ class _ReminderScreenState extends State<ReminderScreen> {
         onPressed: _showAddOrEditReminderDialog,
         backgroundColor: AppColors.primaryGreen,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Yeni Hatırlatıcı',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Hatırlatıcı Ekle'),
       ),
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.alarm_off_rounded,
-                size: 60,
-                color: AppColors.primaryGreen.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Henüz Hatırlatıcı Yok',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Vitamin, spor ve diğer önemli görevleriniz\niçin hatırlatıcı ekleyin!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: _showAddOrEditReminderDialog,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('İlk Hatırlatıcını Ekle'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryGreen,
-                side: BorderSide(color: AppColors.primaryGreen),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildReminderCard(Reminder reminder) {
+    final now = DateTime.now();
+    final isPast = reminder.reminderDateTime.isBefore(now);
+    final isToday = reminder.reminderDateTime.year == now.year &&
+                   reminder.reminderDateTime.month == now.month &&
+                   reminder.reminderDateTime.day == now.day;
 
-  Widget _buildRemindersList(ReminderProvider provider, bool isDark) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: provider.reminders.length,
-      itemBuilder: (context, index) {
-        final reminder = provider.reminders[index];
-        return _buildReminderCard(reminder, provider, isDark);
-      },
-    );
-  }
-
-  Widget _buildReminderCard(Reminder reminder, ReminderProvider provider, bool isDark) {
-    final isActive = reminder.isActive;
-    final isPast = reminder.reminderDateTime.isBefore(DateTime.now());
-    
-    return Dismissible(
-      key: Key(reminder.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.delete_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Sil',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-      confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Hatırlatıcıyı Sil'),
-            content: Text('${reminder.title} hatırlatıcısını silmek istediğinizden emin misiniz?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('İptal'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Sil', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-        ) ?? false;
-      },
-      onDismissed: (direction) {
-        provider.deleteReminder(reminder.id);
-        _showSnackBar('✅ Hatırlatıcı silindi!');
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isActive 
-                ? AppColors.primaryGreen.withOpacity(0.3)
-                : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
-          ),
-          boxShadow: [
-            if (isActive) BoxShadow(
-              color: AppColors.primaryGreen.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isActive 
-                  ? _getColorForType(reminder.type).withOpacity(0.1)
-                  : (isDark ? Colors.grey[700] : Colors.grey[200]),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              _getIconForType(reminder.type),
-              color: isActive 
-                  ? _getColorForType(reminder.type)
-                  : (isDark ? Colors.grey[500] : Colors.grey[600]),
-              size: 24,
-            ),
-          ),
-          title: Text(
-            reminder.title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              decoration: !isActive ? TextDecoration.lineThrough : null,
-              color: isActive 
-                  ? (isDark ? Colors.white : Colors.black87)
-                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text(
-                _getReminderTypeName(reminder.type),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _getColorForType(reminder.type),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 14,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR').format(reminder.reminderDateTime),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                  if (isPast && isActive) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Geçmiş',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.orange[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 8),
-              // YENİ EKLENDİ: Kaydır ve sil ipucu
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.swipe_left_rounded,
-                      size: 12,
-                      color: Colors.red[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Sola kaydır = Sil',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.red[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Switch(
-                value: isActive,
-                onChanged: (value) {
-                  provider.toggleReminderStatus(reminder.id, value);
-                },
-                activeColor: AppColors.primaryGreen,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_vert_rounded,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                ),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit':
-                      _showAddOrEditReminderDialog(existingReminder: reminder);
-                      break;
-                    case 'delete':
-                      _showDeleteDialog(reminder, provider);
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_rounded, size: 20),
-                        SizedBox(width: 8),
-                        Text('Düzenle'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_rounded, size: 20, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Sil', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              // YENİ EKLENDİ: Direkt silme butonu
-              IconButton(
-                onPressed: () => _showDeleteDialog(reminder, provider),
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.red,
-                  size: 22,
-                ),
-                tooltip: 'Sil',
-              ),
-            ],
-          ),
-          onTap: () => _showAddOrEditReminderDialog(existingReminder: reminder),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTestPanel() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.bug_report_rounded, color: Colors.orange),
-              const SizedBox(width: 8),
-              Text(
-                'Bildirim Test Paneli',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange[800],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildTestButton('Anında Test', () async {
-                await _notificationService.sendTestNotification();
-                _showSnackBar('Test bildirimi gönderildi!');
-              }),
-              _buildTestButton('5sn Sonra Vitamin', () async {
-                await _notificationService.scheduleVitaminReminder(
-                  id: 9998,
-                  vitaminName: 'Test Vitamini',
-                  scheduledTime: DateTime.now().add(const Duration(seconds: 5)),
-                );
-                _showSnackBar('Vitamin hatırlatması 5 saniye sonra!');
-              }),
-              _buildTestButton('10sn Sonra Spor', () async {
-                await _notificationService.scheduleWorkoutReminder(
-                  id: 9997,
-                  workoutType: 'Test Sporcu',
-                  scheduledTime: DateTime.now().add(const Duration(seconds: 10)),
-                );
-                _showSnackBar('Spor hatırlatması 10 saniye sonra!');
-              }),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTestButton(String label, VoidCallback onPressed) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange.withOpacity(0.2),
-        foregroundColor: Colors.orange[800],
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        textStyle: const TextStyle(fontSize: 12),
-      ),
-      child: Text(label),
-    );
-  }
-
-  void _showDeleteDialog(Reminder reminder, ReminderProvider provider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.warning_rounded,
-              color: Colors.orange,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            const Text('Hatırlatıcıyı Sil'),
-          ],
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        elevation: reminder.isActive ? 3 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isToday && reminder.isActive 
+              ? const BorderSide(color: AppColors.primaryGreen, width: 2)
+              : BorderSide.none,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bu hatırlatıcıyı silmek istediğinizden emin misiniz?',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _getIconForType(reminder.type),
-                    color: _getColorForType(reminder.type),
-                    size: 20,
+        child: InkWell(
+          onTap: () => _showAddOrEditReminderDialog(existingReminder: reminder),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: reminder.isActive 
+                        ? AppColors.primaryGreen.withOpacity(0.1)
+                        : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          reminder.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                  child: Icon(
+                    reminder.icon,
+                    color: reminder.isActive ? AppColors.primaryGreen : Colors.grey,
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        reminder.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          decoration: !reminder.isActive ? TextDecoration.lineThrough : null,
+                          color: !reminder.isActive ? Colors.grey : null,
                         ),
+                      ),
+                      
+                      if (reminder.description != null && reminder.description!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          _getReminderTypeName(reminder.type),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _getColorForType(reminder.type),
+                          reminder.description!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey.shade600,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
-                    ),
+                      
+                      const SizedBox(height: 4),
+                      
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 14,
+                            color: isToday ? AppColors.primaryGreen : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            DateFormat('dd MMMM yyyy, HH:mm', 'tr_TR').format(reminder.reminderDateTime),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isToday ? AppColors.primaryGreen : Colors.grey.shade600,
+                              fontWeight: isToday ? FontWeight.w600 : null,
+                            ),
+                          ),
+                          if (isPast && reminder.isActive) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Geçmiş',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                
+                // Switch
+                Switch(
+                  value: reminder.isActive,
+                  onChanged: (value) async {
+                    final reminderProvider = Provider.of<ReminderProvider>(context, listen: false);
+                    await reminderProvider.toggleReminderStatus(reminder.id, value);
+                    
+                    if (value) {
+                      // Aktif yapıldığında bildirim planla
+                      await _scheduleNotification(reminder);
+                    } else {
+                      // Pasif yapıldığında bildirimi iptal et
+                      await NotificationService().cancelNotification(reminder.id.hashCode);
+                    }
+                  },
+                  activeColor: AppColors.primaryGreen,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              '⚠️ Bu işlem geri alınamaz ve zamanlanmış bildirim de iptal edilecektir.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.orange[700],
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'İptal',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              provider.deleteReminder(reminder.id);
-              Navigator.pop(context);
-              _showSnackBar('✅ Hatırlatıcı silindi!');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              'Sil',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Color _getColorForType(ReminderType type) {
+  IconData _getTypeIcon(ReminderType type) {
     switch (type) {
       case ReminderType.sport:
-        return Colors.orange;
+        return Icons.sports_gymnastics;
       case ReminderType.water:
-        return Colors.blue;
+        return Icons.water_drop;
       case ReminderType.medication:
-        return Colors.green;
-      case ReminderType.vitamin: // EKLENEN CASE
-        return Colors.purple;
+        return Icons.medical_services;
+      case ReminderType.vitamin:
+        return Icons.healing; // vitamins ikonu yok, healing kullan
       case ReminderType.general:
-        return AppColors.primaryGreen;
+        return Icons.task;
     }
   }
 
@@ -897,20 +699,27 @@ class _ReminderScreenState extends State<ReminderScreen> {
         return 'Su İçme';
       case ReminderType.medication:
         return 'İlaç';
-      case ReminderType.vitamin: // EKLENEN CASE
+      case ReminderType.vitamin:
         return 'Vitamin';
       case ReminderType.general:
-        return 'Genel';
+        return 'Genel Görev';
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.primaryGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  String _getRepeatName(RepeatInterval repeat) {
+    switch (repeat) {
+      case RepeatInterval.none:
+        return 'Tek seferlik';
+      case RepeatInterval.daily:
+        return 'Her gün';
+      case RepeatInterval.weekly:
+        return 'Haftalık';
+      case RepeatInterval.monthly:
+        return 'Aylık';
+      case RepeatInterval.yearly:
+        return 'Yıllık';
+      case RepeatInterval.custom:
+        return 'Özel';
+    }
   }
-} // EKSIK PARANTEZ EKLENDİ
+}

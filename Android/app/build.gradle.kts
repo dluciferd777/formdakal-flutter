@@ -22,22 +22,22 @@ plugins {
 
 android {
     namespace = "com.example.formdakal"
-    compileSdk = 35
+    compileSdk = 34
     
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
     
     kotlinOptions {
-        jvmTarget = "21"
+        jvmTarget = "11"
     }
     
     defaultConfig {
         applicationId = "com.example.formdakal"
         minSdk = 21
-        targetSdk = 35
+        targetSdk = 34
         versionCode = flutterVersionCode
         versionName = flutterVersionName
     }

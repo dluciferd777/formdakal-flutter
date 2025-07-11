@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart - DOĞRU İMPORT İLE DÜZELTİLDİ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +8,12 @@ import '../providers/exercise_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/advanced_step_counter_service.dart';
 import '../services/calorie_service.dart';
 import '../utils/colors.dart';
 import '../widgets/activity_calendar.dart';
 import '../widgets/custom_drawer.dart';
 import '../widgets/expandable_activity_card.dart';
+import '../widgets/advanced_step_counter_card.dart'; // DOĞRU İMPORT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,21 +24,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final AdvancedStepCounterService _stepCounter = AdvancedStepCounterService();
   DateTime _selectedDate = DateTime.now();
 
   @override
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeStepCounter();
-  }
-
-  Future<void> _initializeStepCounter() async {
-    await _stepCounter.initialize();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                         
-                        // Takvim ile başlık arasındaki boşluk
+                        // Boşluk
                         const SliverToBoxAdapter(
                           child: SizedBox(height: 40),
                         ),
@@ -133,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                           ),
                         ),
                         
-                        // Activities Header ve Paylaş Butonu
+                        // Activities Header
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -142,9 +132,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                               children: [
                                 Text('Aktivitelerim', 
                                   style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, color: isDarkMode ? Colors.white : Colors.black)),
-                                // Günlük Özet Paylaşım Butonu
                                 IconButton(
-                                  icon: const Icon(Icons.share, size: 28, color: AppColors.primaryGreen),
+                                  icon: Icon(Icons.share, size: 28, color: AppColors.primaryGreen),
                                   onPressed: () => Navigator.pushNamed(context, '/daily_summary'),
                                   tooltip: 'Günlük Özetimi Paylaş',
                                 ),
@@ -157,9 +146,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         SliverToBoxAdapter(
                           child: Column(
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: _buildAdvancedStepCounterCard(isDarkMode, exerciseProvider),
+                              // DOĞRU WİDGET KULLANIMI
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: AdvancedStepCounterCard(),
                               ),
                               const SizedBox(height: 7),
                               Padding(
@@ -226,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                                   type: ActivityCardType.water,
                                 ),
                               ),
-                              // Navigation bar boşluğu
                               SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
                             ],
                           ),
@@ -240,229 +229,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAdvancedStepCounterCard(bool isDarkMode, ExerciseProvider exerciseProvider) {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, child) {
-        final user = userProvider.user;
-        final stepGoal = user?.dailyStepGoal ?? 6000;
-        final activeMinutes = exerciseProvider.getDailyExerciseMinutes(DateTime.now());
-        
-        return ListenableBuilder(
-          listenable: _stepCounter,
-          builder: (context, child) {
-            final todaySteps = _stepCounter.todaySteps;
-            final burnedCalories = _stepCounter.getCaloriesFromSteps();
-            
-            // Progress yüzdeleri
-            final stepProgress = (todaySteps / stepGoal).clamp(0.0, 1.0);
-            final minuteProgress = (activeMinutes / 90).clamp(0.0, 1.0); // 90 dk hedef
-            final calorieProgress = (burnedCalories / 500).clamp(0.0, 1.0); // 500 kal hedef
-            
-            return GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(context, '/step_details');
-              },
-              child: Card(
-                elevation: 2,
-                margin: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  height: 120,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        isDarkMode
-                            ? const Color(0xFF2C2C2E)
-                            : Colors.white,
-                        isDarkMode
-                            ? const Color(0xFF1C1C1E)
-                            : Colors.grey.shade50,
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Sol taraf - İstatistikler
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            // Adım
-                            _buildStatRow(
-                              Icons.directions_walk,
-                              Colors.purple,
-                              '$todaySteps',
-                              'adım',
-                              '/$stepGoal',
-                              isDarkMode,
-                            ),
-                            // Dakika
-                            _buildStatRow(
-                              Icons.timer,
-                              Colors.blue,
-                              '$activeMinutes',
-                              'dak',
-                              '/90 dak',
-                              isDarkMode,
-                            ),
-                            // Kalori
-                            _buildStatRow(
-                              Icons.local_fire_department,
-                              Colors.red.shade400,
-                              '$burnedCalories',
-                              'kal',
-                              '/500 kal',
-                              isDarkMode,
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // Sağ taraf - Çok renkli halkalar
-                      Expanded(
-                        flex: 1,
-                        child: Center(
-                          child: SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // Dış halka - Adım (Mor)
-                                SizedBox(
-                                  width: 80,
-                                  height: 80,
-                                  child: CircularProgressIndicator(
-                                    value: stepProgress,
-                                    strokeWidth: 6,
-                                    backgroundColor: Colors.purple.withOpacity(0.2),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.purple),
-                                    strokeCap: StrokeCap.round,
-                                  ),
-                                ),
-                                // Orta halka - Dakika (Mavi)
-                                SizedBox(
-                                  width: 65,
-                                  height: 65,
-                                  child: CircularProgressIndicator(
-                                    value: minuteProgress,
-                                    strokeWidth: 5,
-                                    backgroundColor: Colors.blue.withOpacity(0.2),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                                    strokeCap: StrokeCap.round,
-                                  ),
-                                ),
-                                // İç halka - Kalori (Kırmızı)
-                                SizedBox(
-                                  width: 50,
-                                  height: 50,
-                                  child: CircularProgressIndicator(
-                                    value: calorieProgress,
-                                    strokeWidth: 4,
-                                    backgroundColor: Colors.red.shade400.withOpacity(0.2),
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red.shade400),
-                                    strokeCap: StrokeCap.round,
-                                  ),
-                                ),
-                                // Ortadaki servis durumu göstergesi
-                                Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: _stepCounter.isServiceActive
-                                        ? AppColors.primaryGreen
-                                        : Colors.grey.shade400,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ), // HATA BURADAYDI: Eksik parantez eklendi.
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildStatRow(
-    IconData icon,
-    Color color,
-    String value,
-    String unit,
-    String goal,
-    bool isDark,
-  ) {
-    return Row(
-      children: [
-        // İkon
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 14,
-          ),
-        ),
-        const SizedBox(width: 12),
-        
-        // Değer ve birim
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-              const SizedBox(width: 2),
-              Text(
-                unit,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark ? Colors.white70 : Colors.black54,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                goal,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isDark ? Colors.white54 : Colors.black38,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -489,16 +255,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           SnackBar(
             content: Text('Güncelleme hatası: $e'),
             backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 1),
+            duration: Duration(seconds: 1),
           ),
         );
       }
     }
-  }
-
-  @override
-  void dispose() {
-    // Step counter'ı dispose etme - arka planda çalışmaya devam etsin
-    super.dispose();
   }
 }

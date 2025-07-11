@@ -1,7 +1,6 @@
-// lib/widgets/advanced_step_counter_card.dart
+// lib/widgets/advanced_step_counter_card.dart - GERÇEK WİDGET
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
 import '../services/advanced_step_counter_service.dart';
 import '../utils/colors.dart';
 
@@ -12,438 +11,345 @@ class AdvancedStepCounterCard extends StatefulWidget {
   State<AdvancedStepCounterCard> createState() => _AdvancedStepCounterCardState();
 }
 
-class _AdvancedStepCounterCardState extends State<AdvancedStepCounterCard>
-    with TickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+class _AdvancedStepCounterCardState extends State<AdvancedStepCounterCard> {
+  late AdvancedStepCounterService _stepService;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-
-    _pulseController.repeat(reverse: true);
+    _initializeStepCounter();
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
+  Future<void> _initializeStepCounter() async {
+    try {
+      _stepService = AdvancedStepCounterService();
+      await _stepService.initialize();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      print('Adım sayar başlatma hatası: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    return Consumer<AdvancedStepCounterService>(
-      builder: (context, stepService, child) {
-        final steps = stepService.todaySteps;
-        final isWalking = stepService.isWalking;
-        
-        const stepGoal = 8000;
-        final progress = (steps / stepGoal).clamp(0.0, 1.0);
+    if (!_isInitialized) {
+      return _buildLoadingCard();
+    }
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/step_details');
-          },
-          child: Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark 
-                    ? [
-                        const Color(0xFF1E1E1E),
-                        const Color(0xFF2A2A2A),
-                      ]
-                    : [
-                        Colors.white,
-                        Colors.grey[50]!,
-                      ],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+    return ChangeNotifierProvider.value(
+      value: _stepService,
+      child: Consumer<AdvancedStepCounterService>(
+        builder: (context, stepService, child) {
+          final todaySteps = stepService.todaySteps;
+          final isWalking = stepService.isWalking;
+          final isActive = stepService.isServiceActive;
+          final progress = (todaySteps / 10000).clamp(0.0, 1.0);
+          final calories = stepService.getCaloriesFromSteps();
+          final distance = stepService.getDistanceFromSteps();
+
+          return Card(
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Stack(
-              children: [
-                // Arkaplan desenleri
-                Positioned(
-                  top: -20,
-                  right: -20,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primaryGreen.withOpacity(0.05),
-                    ),
-                  ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryGreen.withOpacity(0.1),
+                    AppColors.primaryGreen.withOpacity(0.05),
+                  ],
                 ),
-                
-                Positioned(
-                  bottom: -30,
-                  left: -30,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primaryGreen.withOpacity(0.03),
-                    ),
-                  ),
-                ),
-                
-                // Ana içerik
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
                     children: [
-                      // Başlık
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.directions_walk_rounded,
-                              color: AppColors.primaryGreen,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isWalking 
+                              ? AppColors.primaryGreen.withOpacity(0.3)
+                              : AppColors.primaryGreen.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isWalking ? Icons.directions_walk : Icons.directions_walk_outlined,
+                          color: AppColors.primaryGreen,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
                                 Text(
-                                  'Adım Sayar',
-                                  style: TextStyle(
-                                    fontSize: 18,
+                                  'Adım Sayacı',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : Colors.black87,
                                   ),
                                 ),
-                                if (isWalking)
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.green,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Aktif',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.green[600],
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 20),
-                      
-                      // Ana halka ve istatistikler
-                      Row(
-                        children: [
-                          // Halka
-                          AnimatedBuilder(
-                            animation: _pulseAnimation,
-                            builder: (context, child) {
-                              return Transform.scale(
-                                scale: isWalking ? _pulseAnimation.value : 1.0,
-                                child: SizedBox(
-                                  width: 120,
-                                  height: 120,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      // Arkaplan halka
-                                      CustomPaint(
-                                        size: const Size(120, 120),
-                                        painter: CircularProgressPainter(
-                                          progress: 1.0,
-                                          color: isDark 
-                                              ? Colors.grey[700]! 
-                                              : Colors.grey[300]!,
-                                          strokeWidth: 8,
-                                        ),
-                                      ),
-                                      
-                                      // İlerleme halka
-                                      CustomPaint(
-                                        size: const Size(120, 120),
-                                        painter: CircularProgressPainter(
-                                          progress: progress,
-                                          color: AppColors.primaryGreen,
-                                          strokeWidth: 8,
-                                          showGlow: true,
-                                        ),
-                                      ),
-                                      
-                                      // Merkez sayı
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            steps.toString(),
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: isDark ? Colors.white : Colors.black87,
-                                            ),
-                                          ),
-                                          Text(
-                                            'adım',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: AppColors.primaryGreen,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          
-                          const SizedBox(width: 20),
-                          
-                          // İstatistikler
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildStatRow(
-                                  context,
-                                  Icons.flag_outlined,
-                                  'Hedef',
-                                  '$stepGoal',
-                                  isDark,
-                                ),
-                                const SizedBox(height: 12),
-                                _buildStatRow(
-                                  context,
-                                  Icons.map_outlined,
-                                  'Mesafe',
-                                  '${((steps * 0.75) / 1000).toStringAsFixed(1)} km',
-                                  isDark,
-                                ),
-                                const SizedBox(height: 12),
-                                _buildStatRow(
-                                  context,
-                                  Icons.local_fire_department_outlined,
-                                  'Kalori',
-                                  '${(steps * 0.04).toInt()} kcal',
-                                  isDark,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // İlerleme çubuğu ve yüzde
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Günlük İlerleme',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                ),
-                              ),
-                              Text(
-                                '${(progress * 100).toInt()}%',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryGreen,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.grey[700] : Colors.grey[300],
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: progress,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.primaryGreen,
-                                      AppColors.primaryGreen.withOpacity(0.8),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primaryGreen.withOpacity(0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
+                                const SizedBox(width: 8),
+                                if (isActive)
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: isWalking ? AppColors.primaryGreen : Colors.orange,
+                                      shape: BoxShape.circle,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                              ],
+                            ),
+                            Text(
+                              isWalking ? 'Yürüyorsunuz' : 'Aktif değil',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: isWalking ? AppColors.primaryGreen : Colors.grey.shade600,
+                                fontWeight: isWalking ? FontWeight.w600 : null,
                               ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            todaySteps.toString(),
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          Text(
+                            'adım',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
-              ],
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Progress Bar
+                  Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Günlük Hedef',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            '${(progress * 100).toInt()}%',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.grey.shade300,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          progress >= 1.0 ? AppColors.success : AppColors.primaryGreen,
+                        ),
+                        minHeight: 6,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '$todaySteps / 10,000',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          if (todaySteps >= 10000)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.success,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Hedef Tamamlandı! 🎉',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Stats Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          'Kalori',
+                          '${calories}',
+                          'kal',
+                          Icons.local_fire_department,
+                          Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          'Mesafe',
+                          '${distance.toStringAsFixed(2)}',
+                          'km',
+                          Icons.straighten,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            _stepService.resetDailySteps();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Günlük adımlar sıfırlandı'),
+                                backgroundColor: AppColors.primaryGreen,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Sıfırla', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primaryGreen,
+                            side: const BorderSide(color: AppColors.primaryGreen),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _stepService.addTestStep();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Test adımı eklendi'),
+                                backgroundColor: AppColors.primaryGreen,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Test', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildStatRow(
+  Widget _buildLoadingCard() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        height: 200,
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+              ),
+              SizedBox(height: 12),
+              Text('Adım sayar başlatılıyor...'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
     BuildContext context,
-    IconData icon,
-    String label,
+    String title,
     String value,
-    bool isDark,
+    String unit,
+    IconData icon,
+    Color color,
   ) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black87,
+          Text(
+            unit,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey.shade600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-}
-
-// Dairesel ilerleme çizici
-class CircularProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final double strokeWidth;
-  final bool showGlow;
-
-  CircularProgressPainter({
-    required this.progress,
-    required this.color,
-    this.strokeWidth = 6.0,
-    this.showGlow = false,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-
-    // Glow efekti
-    if (showGlow && progress > 0) {
-      final glowPaint = Paint()
-        ..color = color.withOpacity(0.3)
-        ..strokeWidth = strokeWidth + 2
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2,
-        2 * math.pi * progress,
-        false,
-        glowPaint,
-      );
-    }
-
-    // Ana halka
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      2 * math.pi * progress,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
