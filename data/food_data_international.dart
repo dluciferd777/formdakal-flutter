@@ -1,0 +1,30 @@
+// lib/data/food_data_international.dart
+import '../models/food_model.dart';
+
+final List<FoodModel> internationalFoods = [
+  FoodModel(id: 'pizza_peynirli', name: 'Pizza (Peynirli, 1 dilim)', calories: 280, protein: 12, carbs: 35, fat: 10, sugar: 4, fiber: 2, sodium: 600, category: 'fast_food'),
+  FoodModel(id: 'makarna_domates_soslu', name: 'Makarna (Domates Soslu)', calories: 350, protein: 10, carbs: 50, fat: 10, sugar: 5, fiber: 4, sodium: 300, category: 'pasta'),
+  FoodModel(id: 'hamburger', name: 'Hamburger (Tek köfteli)', calories: 300, protein: 15, carbs: 30, fat: 15, sugar: 5, fiber: 2, sodium: 500, category: 'fast_food'),
+  FoodModel(id: 'sushi_nigiri', name: 'Sushi (Nigiri, 1 adet)', calories: 50, protein: 3, carbs: 7, fat: 1, sugar: 1, fiber: 0.5, sodium: 100, category: 'asian'),
+  FoodModel(id: 'taco_tavuklu', name: 'Taco (Tavuklu, 1 adet)', calories: 200, protein: 10, carbs: 20, fat: 9, sugar: 2, fiber: 3, sodium: 350, category: 'mexican'),
+  FoodModel(id: 'yumurta_haslanmis_buyuk', name: 'Haşlanmış Yumurta (Büyük)', calories: 155, protein: 13, carbs: 1.1, fat: 11, sugar: 1.1, fiber: 0, sodium: 124, category: 'protein'),
+  FoodModel(id: 'domates', name: 'Domates', calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2, sugar: 2.6, fiber: 1.2, sodium: 5, category: 'vegetable'),
+  FoodModel(id: 'salatalik', name: 'Salatalık', calories: 15, protein: 0.7, carbs: 3.6, fat: 0.1, sugar: 1.7, fiber: 1.5, sodium: 2, category: 'vegetable'),
+  FoodModel(id: 'marul', name: 'Marul', calories: 15, protein: 1.4, carbs: 2.9, fat: 0.2, sugar: 0.8, fiber: 1.3, sodium: 28, category: 'vegetable'),
+  FoodModel(id: 'elma', name: 'Elma', calories: 52, protein: 0.3, carbs: 13.8, fat: 0.2, sugar: 10.4, fiber: 2.4, sodium: 1, category: 'fruit'),
+  FoodModel(id: 'muz', name: 'Muz', calories: 89, protein: 1.1, carbs: 22.8, fat: 0.3, sugar: 12.2, fiber: 2.6, sodium: 1, category: 'fruit'),
+  FoodModel(id: 'portakal', name: 'Portakal', calories: 47, protein: 0.9, carbs: 11.8, fat: 0.1, sugar: 9.4, fiber: 2.4, sodium: 0, category: 'fruit'),
+  FoodModel(id: 'yogurt_tam_yagli', name: 'Yoğurt (Tam Yağlı)', calories: 90, protein: 3.5, carbs: 4.7, fat: 5, sugar: 4.7, fiber: 0, sodium: 50, category: 'dairy'),
+  FoodModel(id: 'siyah_zeytin', name: 'Siyah Zeytin', calories: 115, protein: 0.8, carbs: 6.3, fat: 10.7, sugar: 0, fiber: 3.2, sodium: 735, category: 'fruit'),
+  FoodModel(id: 'yesil_zeytin', name: 'Yeşil Zeytin', calories: 145, protein: 1, carbs: 3.8, fat: 15.3, sugar: 0, fiber: 3.3, sodium: 1556, category: 'fruit'),
+  FoodModel(id: 'tam_bugday_ekmegi', name: 'Tam Buğday Ekmeği (1 dilim)', calories: 70, protein: 3.5, carbs: 12, fat: 1, sugar: 1, fiber: 2.5, sodium: 120, category: 'grain'),
+  FoodModel(id: 'sut_yagli', name: 'Süt (Tam Yağlı)', calories: 61, protein: 3.2, carbs: 4.8, fat: 3.3, sugar: 4.8, fiber: 0, sodium: 45, category: 'dairy'),
+  FoodModel(id: 'sut_yagsiz', name: 'Süt (Yağsız)', calories: 34, protein: 3.4, carbs: 4.9, fat: 0.2, sugar: 4.9, fiber: 0, sodium: 47, category: 'dairy'),
+  FoodModel(id: 'badem', name: 'Badem', calories: 579, protein: 21, carbs: 21.5, fat: 49.9, sugar: 4.9, fiber: 12.5, sodium: 1, category: 'nut'),
+  FoodModel(id: 'ceviz', name: 'Ceviz', calories: 654, protein: 15.2, carbs: 13.7, fat: 65.2, sugar: 2.6, fiber: 6.7, sodium: 2, category: 'nut'),
+  FoodModel(id: 'cilek', name: 'Çilek', calories: 32, protein: 0.7, carbs: 7.7, fat: 0.3, sugar: 4.9, fiber: 2, sodium: 1, category: 'fruit'),
+  FoodModel(id: 'karpuz', name: 'Karpuz', calories: 30, protein: 0.6, carbs: 7.6, fat: 0.2, sugar: 6.2, fiber: 0.4, sodium: 1, category: 'fruit'),
+  FoodModel(id: 'peynirli_omlet', name: 'Peynirli Omlet (2 yumurta)', calories: 250, protein: 18, carbs: 2, fat: 18, sugar: 1, fiber: 0.5, sodium: 300, category: 'breakfast'),
+  FoodModel(id: 'cay_siyah_sekersiz', name: 'Çay (Şekersiz)', calories: 2, protein: 0.1, carbs: 0.4, fat: 0, sugar: 0, fiber: 0, sodium: 0, category: 'beverage'),
+  FoodModel(id: 'kahve_sutsuz_sekersiz', name: 'Kahve (Sütsüz/Şekersiz)', calories: 2, protein: 0.1, carbs: 0.4, fat: 0, sugar: 0, fiber: 0, sodium: 0, category: 'beverage'),
+];
